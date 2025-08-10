@@ -1,4 +1,6 @@
 import { useState } from "react";
+import ImageUpload from "@/components/ui/ImageUpload";
+import { FlashCardsPreview } from "../PreviewComponents";
 
 export default function FlashCards({
   content,
@@ -11,10 +13,11 @@ export default function FlashCards({
       {
         front: "",
         back: "",
+        frontImage: null,
+        backImage: null,
       },
     ]
   );
-
   const updateContent = (newCards) => {
     setCards(newCards);
     if (onChange) {
@@ -23,7 +26,10 @@ export default function FlashCards({
   };
 
   const addCard = () => {
-    const newCards = [...cards, { front: "", back: "" }];
+    const newCards = [
+      ...cards,
+      { front: "", back: "", frontImage: null, backImage: null },
+    ];
     updateContent(newCards);
   };
 
@@ -45,6 +51,14 @@ export default function FlashCards({
 
   if (mode === "player") {
     return <FlashCardsPlayer cards={cards} onComplete={onComplete} />;
+  }
+
+  if (mode === "preview") {
+    return <FlashCardsPlayer cards={cards} onComplete={() => {}} />;
+  }
+
+  if (mode === "student-preview") {
+    return <FlashCardsPreview cards={cards} />;
   }
 
   return (
@@ -113,7 +127,7 @@ export default function FlashCards({
             )}
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-6">
             {/* Front Side */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -126,6 +140,18 @@ export default function FlashCards({
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent"
                 rows={3}
               />
+
+              {/* Front Image */}
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Front Image (Optional)
+                </label>
+                <ImageUpload
+                  value={card.frontImage}
+                  onChange={(url) => updateCard(cardIndex, "frontImage", url)}
+                  placeholder="Add image to front of card"
+                />
+              </div>
             </div>
 
             {/* Back Side */}
@@ -140,6 +166,18 @@ export default function FlashCards({
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent"
                 rows={3}
               />
+
+              {/* Back Image */}
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Back Image (Optional)
+                </label>
+                <ImageUpload
+                  value={card.backImage}
+                  onChange={(url) => updateCard(cardIndex, "backImage", url)}
+                  placeholder="Add image to back of card"
+                />
+              </div>
             </div>
           </div>
 
@@ -149,6 +187,13 @@ export default function FlashCards({
               <p className="text-xs font-medium text-brand-blue-dark mb-2 uppercase tracking-wide">
                 Front Preview
               </p>
+              {card.frontImage && (
+                <img
+                  src={card.frontImage}
+                  alt="Front preview"
+                  className="w-full h-32 object-cover rounded-lg mb-3"
+                />
+              )}
               <div className="text-gray-900 font-medium">
                 {card.front || "Front content will appear here..."}
               </div>
@@ -158,6 +203,13 @@ export default function FlashCards({
               <p className="text-xs font-medium text-brand-green-dark mb-2 uppercase tracking-wide">
                 Back Preview
               </p>
+              {card.backImage && (
+                <img
+                  src={card.backImage}
+                  alt="Back preview"
+                  className="w-full h-32 object-cover rounded-lg mb-3"
+                />
+              )}
               <div className="text-gray-900 font-medium">
                 {card.back || "Back content will appear here..."}
               </div>
@@ -176,9 +228,10 @@ function FlashCardsPlayer({ cards, onComplete }) {
   const [results, setResults] = useState({});
   const [showResults, setShowResults] = useState(false);
   const [studyMode, setStudyMode] = useState("study"); // 'study' or 'test'
+  const [shuffledCards, setShuffledCards] = useState(cards);
 
   const nextCard = () => {
-    if (currentCard < cards.length - 1) {
+    if (currentCard < shuffledCards.length - 1) {
       setCurrentCard((prev) => prev + 1);
       setIsFlipped(false);
     } else {
@@ -210,6 +263,7 @@ function FlashCardsPlayer({ cards, onComplete }) {
   };
 
   const restartCards = () => {
+    setShuffledCards(cards); // Volta à ordem original
     setCurrentCard(0);
     setIsFlipped(false);
     setResults({});
@@ -218,8 +272,11 @@ function FlashCardsPlayer({ cards, onComplete }) {
 
   const shuffleCards = () => {
     const shuffled = [...cards].sort(() => Math.random() - 0.5);
-    // Would need to update the cards prop, for now just restart
-    restartCards();
+    setShuffledCards(shuffled);
+    setCurrentCard(0);
+    setIsFlipped(false);
+    setResults({});
+    setShowResults(false);
   };
 
   const calculateScore = () => {
@@ -285,11 +342,87 @@ function FlashCardsPlayer({ cards, onComplete }) {
             </button>
           </div>
         </div>
+
+        {/* Show results with user performance for each card */}
+        <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100 text-left">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Card Results:</h3>
+          <div className="space-y-4">
+            {cards.map((card, cardIndex) => {
+              const userResult = results[cardIndex];
+              const isCorrect = userResult === true;
+              const wasAnswered = userResult !== undefined;
+              
+              return (
+                <div
+                  key={cardIndex}
+                  className={`p-4 rounded-lg border ${
+                    !wasAnswered 
+                      ? "border-gray-200 bg-gray-50"
+                      : isCorrect
+                      ? "border-green-200 bg-green-50"
+                      : "border-red-200 bg-red-50"
+                  }`}
+                >
+                  <div className="flex items-start mb-3">
+                    <span
+                      className={`w-6 h-6 rounded-full flex items-center justify-center mr-3 mt-0.5 flex-shrink-0 ${
+                        !wasAnswered
+                          ? "bg-gray-400 text-white"
+                          : isCorrect
+                          ? "bg-green-500 text-white"
+                          : "bg-red-500 text-white"
+                      }`}
+                    >
+                      {!wasAnswered ? "?" : isCorrect ? "✓" : "✗"}
+                    </span>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 mb-2">
+                        Card {cardIndex + 1}
+                      </h4>
+                      
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Question: </span>
+                          <span className="text-sm text-gray-900">"{card.front}"</span>
+                        </div>
+                        
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Answer: </span>
+                          <span className="text-sm text-gray-900">"{card.back}"</span>
+                        </div>
+
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Your response: </span>
+                          <span 
+                            className={`text-sm font-medium ${
+                              !wasAnswered 
+                                ? "text-gray-500"
+                                : isCorrect 
+                                ? "text-green-600" 
+                                : "text-red-600"
+                            }`}
+                          >
+                            {!wasAnswered 
+                              ? "Not answered"
+                              : isCorrect 
+                              ? "I knew it!" 
+                              : "I didn't know"
+                            }
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   }
 
-  const card = cards[currentCard];
+  const card = shuffledCards[currentCard];
   if (!card) return null;
 
   return (
@@ -298,16 +431,18 @@ function FlashCardsPlayer({ cards, onComplete }) {
       <div className="bg-white rounded-xl p-4 shadow-soft border border-gray-100">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-gray-600">
-            Card {currentCard + 1} of {cards.length}
+            Card {currentCard + 1} of {shuffledCards.length}
           </span>
           <span className="text-sm text-gray-500">
-            {Math.round(((currentCard + 1) / cards.length) * 100)}%
+            {Math.round(((currentCard + 1) / shuffledCards.length) * 100)}%
           </span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div
             className="bg-brand-blue h-2 rounded-full transition-all duration-300"
-            style={{ width: `${((currentCard + 1) / cards.length) * 100}%` }}
+            style={{
+              width: `${((currentCard + 1) / shuffledCards.length) * 100}%`,
+            }}
           />
         </div>
       </div>
@@ -315,18 +450,31 @@ function FlashCardsPlayer({ cards, onComplete }) {
       {/* Flash Card */}
       <div className="bg-white rounded-xl shadow-soft border border-gray-100 overflow-hidden">
         <div
-          className={`cursor-pointer transition-all duration-500 ${
-            isFlipped ? "transform rotateY-180" : ""
-          }`}
+          className={`
+            cursor-pointer transition-all duration-500 ease-in-out transform-style-preserve-3d
+            ${isFlipped ? "rotate-y-180" : "rotate-y-0"}
+          `}
           onClick={flipCard}
         >
           <div className="p-8 min-h-80 flex flex-col justify-center items-center text-center">
             {!isFlipped ? (
               // Front of card
-              <div className="space-y-4">
+              <div className="space-y-4 max-w-md w-full">
                 <div className="w-12 h-12 bg-brand-blue/20 rounded-full flex items-center justify-center mx-auto">
                   <span className="text-brand-blue font-bold text-lg">?</span>
                 </div>
+
+                {/* Front Image */}
+                {card.frontImage && (
+                  <div className="relative bg-white overflow-hidden">
+                    <img
+                      src={card.frontImage}
+                      alt="Question image"
+                      className="w-fit mx-auto h-full object-contain max-h-[300px] rounded-lg"
+                    />
+                  </div>
+                )}
+
                 <div className="text-2xl font-medium text-gray-900 leading-relaxed">
                   {card.front}
                 </div>
@@ -334,10 +482,24 @@ function FlashCardsPlayer({ cards, onComplete }) {
               </div>
             ) : (
               // Back of card
-              <div className="space-y-4">
+              <div className="space-y-4 max-w-md w-full">
                 <div className="w-12 h-12 bg-brand-green/20 rounded-full flex items-center justify-center mx-auto">
                   <span className="text-brand-green font-bold text-lg">✓</span>
                 </div>
+
+                {/* Back Image */}
+                {card.backImage && (
+                  <div className="relative bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                    <div className="aspect-w-16 aspect-h-9 max-h-64">
+                      <img
+                        src={card.backImage}
+                        alt="Answer image"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="text-2xl font-medium text-gray-900 leading-relaxed">
                   {card.back}
                 </div>
@@ -393,7 +555,7 @@ function FlashCardsPlayer({ cards, onComplete }) {
             onClick={nextCard}
             className="px-6 py-3 bg-brand-green text-white rounded-lg hover:bg-brand-green-dark transition-colors"
           >
-            {currentCard === cards.length - 1 ? "Finish" : "Next Card"}
+            {currentCard === shuffledCards.length - 1 ? "Finish" : "Next Card"}
           </button>
         )}
       </div>

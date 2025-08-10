@@ -1,15 +1,19 @@
 import { useState } from "react";
+import ImageUpload from "@/components/ui/ImageUpload";
+import { FillBlankPreview } from "../PreviewComponents";
 
 export default function FillBlank({
   content,
   onChange,
   mode = "editor",
   onComplete,
+  showOverview = false,
 }) {
   const [sentences, setSentences] = useState(
     content?.sentences || [
       {
         text: "",
+        sentenceImage: null,
         blanks: [],
       },
     ]
@@ -27,6 +31,7 @@ export default function FillBlank({
       ...sentences,
       {
         text: "",
+        sentenceImage: null,
         blanks: [],
       },
     ];
@@ -111,7 +116,15 @@ export default function FillBlank({
   };
 
   if (mode === "player") {
-    return <FillBlankPlayer sentences={sentences} onComplete={onComplete} />;
+    return <FillBlankPlayer sentences={sentences} onComplete={onComplete} showOverview={showOverview} />;
+  }
+
+  if (mode === "preview") {
+    return <FillBlankPlayer sentences={sentences} onComplete={() => {}} showOverview={showOverview} />;
+  }
+
+  if (mode === "student-preview") {
+    return <FillBlankPreview sentences={sentences} />;
   }
 
   return (
@@ -201,6 +214,19 @@ export default function FillBlank({
                 Generate Blanks
               </button>
             </div>
+            {/* Sentence Image */}
+            <div className="my-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sentence Image (Optional)
+              </label>
+              <ImageUpload
+                value={sentence.sentenceImage}
+                onChange={(url) =>
+                  updateSentence(sentenceIndex, "sentenceImage", url)
+                }
+                placeholder="Add image to sentence"
+              />
+            </div>
           </div>
 
           {/* Blanks List */}
@@ -228,6 +254,13 @@ export default function FillBlank({
           <div className="p-4 bg-gray-50 rounded-lg">
             <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
             <div className="text-gray-900">
+              {sentence.sentenceImage && (
+                <img
+                  src={sentence.sentenceImage}
+                  alt="Sentence preview"
+                  className="w-full max-h-48 object-cover rounded-lg mb-4"
+                />
+              )}
               {sentence.text ? (
                 <p className="text-lg">
                   {formatTextForDisplay(sentence.text, sentence.blanks || [])}
@@ -254,7 +287,7 @@ export default function FillBlank({
 }
 
 // Player component for students
-function FillBlankPlayer({ sentences, onComplete }) {
+function FillBlankPlayer({ sentences, onComplete, showOverview = false }) {
   const [currentSentence, setCurrentSentence] = useState(0);
   const [answers, setAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
@@ -341,7 +374,7 @@ function FillBlankPlayer({ sentences, onComplete }) {
             handleAnswerChange(sentenceIndex, blankIndex, e.target.value)
           }
           className="inline-block mx-1 px-2 py-1 border-b-2 border-brand-blue focus:border-brand-blue-dark outline-none bg-transparent text-center"
-          style={{ width: `${Math.max(blank.word.length * 0.8, 3)}ch` }}
+          style={{ width: `${Math.max(blank.word.length * 1.5, 3)}ch` }}
           placeholder="____"
           disabled={showResults}
         />
@@ -400,17 +433,75 @@ function FillBlankPlayer({ sentences, onComplete }) {
           </button>
         </div>
 
-        {/* Show correct answers */}
+        {/* Show results with user answers and correct answers */}
         <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100 text-left">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Correct Answers:
-          </h3>
-          <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Results:</h3>
+          <div className="space-y-6">
             {sentences.map((sentence, sentenceIndex) => (
-              <div key={sentenceIndex} className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-gray-900">
-                  {sentence.text.replace(/\[([^\]]+)\]/g, "$1")}
-                </p>
+              <div
+                key={sentenceIndex}
+                className="p-4 bg-gray-50 rounded-lg border border-gray-200"
+              >
+                <h4 className="font-medium text-gray-900 mb-3">
+                  Sentence {sentenceIndex + 1}
+                </h4>
+
+                {/* Show sentence with filled blanks */}
+                <div className="mb-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    Complete sentence:
+                  </p>
+                  <p className="text-gray-900">
+                    {sentence.text.replace(/\[([^\]]+)\]/g, "$1")}
+                  </p>
+                </div>
+
+                {/* Show individual blank results */}
+                {sentence.blanks && sentence.blanks.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700">
+                      Individual answers:
+                    </p>
+                    {sentence.blanks.map((blank, blankIndex) => {
+                      const userAnswer =
+                        answers[`${sentenceIndex}-${blankIndex}`] || "";
+                      const isCorrect =
+                        userAnswer.toLowerCase().trim() ===
+                        blank.word.toLowerCase().trim();
+
+                      return (
+                        <div
+                          key={blankIndex}
+                          className="flex items-center space-x-2 text-sm"
+                        >
+                          <span
+                            className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                              isCorrect
+                                ? "bg-green-500 text-white"
+                                : "bg-red-500 text-white"
+                            }`}
+                          >
+                            {isCorrect ? "✓" : "✗"}
+                          </span>
+                          <span className="text-gray-700">
+                            Blank {blankIndex + 1}:
+                          </span>
+                          <span
+                            className={`font-medium ${
+                              isCorrect ? "text-green-600" : "text-red-600"
+                            }`}
+                          >
+                            "{userAnswer}"
+                          </span>
+                          <span className="text-gray-500">→</span>
+                          <span className="font-medium text-green-600">
+                            "{blank.word}"
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -450,6 +541,15 @@ function FillBlankPlayer({ sentences, onComplete }) {
           Fill in the blanks:
         </h2>
 
+        {sentence.sentenceImage && (
+          <div className="mb-6">
+            <img
+              src={sentence.sentenceImage}
+              alt="Sentence context"
+              className="w-full max-h-64 object-contain rounded-lg mx-auto"
+            />
+          </div>
+        )}
         <div className="text-xl leading-relaxed text-center mb-8 text-gray-900">
           {renderSentenceWithBlanks(sentence, currentSentence)}
         </div>
@@ -478,6 +578,35 @@ function FillBlankPlayer({ sentences, onComplete }) {
           </button>
         </div>
       </div>
+
+      {/* Question Overview - Only show when in teacher preview mode */}
+      {showOverview && sentences.length > 1 && (
+        <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            All Sentences Overview
+          </h3>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sentences.map((sentence, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentSentence(index)}
+                className={`p-3 text-left rounded-lg border transition-all ${
+                  index === currentSentence
+                    ? "border-brand-blue bg-brand-blue/5"
+                    : "border-gray-200 hover:border-pastel-blue hover:bg-gray-50"
+                }`}
+              >
+                <div className="font-medium text-sm text-gray-900">
+                  Sentence {index + 1}
+                </div>
+                <div className="text-xs text-gray-500 mt-1 line-clamp-2">
+                  {sentence.text ? sentence.text.replace(/\[([^\]]+)\]/g, "___") : "No sentence text"}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { supabase, dbHelpers } from "@/lib/supabase";
 import MultipleChoice from "@/components/exercises/ExerciseTypes/MultipleChoice";
 import FillBlank from "@/components/exercises/ExerciseTypes/FillBlank";
 import ArrangeWords from "@/components/exercises/ExerciseTypes/ArrangeWords";
 import FlashCards from "@/components/exercises/ExerciseTypes/FlashCards";
 import Matching from "@/components/exercises/ExerciseTypes/Matching";
 import Translation from "@/components/exercises/ExerciseTypes/Translation";
+import ExternalLink from "@/components/exercises/ExerciseTypes/ExternalLink";
 
 export default function ExercisePreviewPage() {
   const { id } = useParams();
@@ -19,9 +20,6 @@ export default function ExercisePreviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isStudentMode, setIsStudentMode] = useState(false);
-
-  console.log("Student ID from URL:", studentId);
-  console.log("Is Student Mode:", isStudentMode);
 
   useEffect(() => {
     setIsStudentMode(!!studentId);
@@ -42,23 +40,7 @@ export default function ExercisePreviewPage() {
     try {
       // For preview, we don't need teacher authentication
       // But we only show active exercises
-      const { data, error } = await supabase
-        .from("exercises")
-        .select(
-          `
-    id,
-    title,
-    description,
-    type,
-    content,
-    is_active,
-    class_id,
-    classes (name, id)
-  `
-        )
-        .eq("id", id)
-        .eq("is_active", true)
-        .single();
+      const { data, error } = await dbHelpers.getPublicExercise(id);
 
       if (error) throw error;
       setExercise(data);
@@ -98,6 +80,14 @@ export default function ExercisePreviewPage() {
     if (!exercise) return null;
 
     switch (exercise.type) {
+      case "ExternalLink":
+        return (
+          <ExternalLink
+            content={exercise.content}
+            mode="player"
+            onComplete={isStudentMode ? saveResult : undefined}
+          />
+        );
       case "MultipleChoice":
         return (
           <MultipleChoice
@@ -294,7 +284,7 @@ export default function ExercisePreviewPage() {
                 </p>
                 <Link
                   href={`/student/dashboard/${
-                    exercise.class_id || exercise.classes?.id
+                    exercise.classes?.[0]?.id || ''
                   }`}
                   className="px-4 py-2 text-brand-blue hover:text-brand-blue-dark transition-colors"
                 >
@@ -307,10 +297,10 @@ export default function ExercisePreviewPage() {
                   This is a preview of the exercise. In the actual student
                   experience, results would be saved and tracked.
                 </p>
-                <div className="flex justify-center space-x-4">
+                <div className="flex justify-center text-center space-x-4">
                   <Link
                     href="/"
-                    className="px-4 py-2 text-brand-blue hover:text-brand-blue-dark transition-colors"
+                    className="text-brand-blue hover:text-brand-blue-dark transition-colors"
                   >
                     ← Back to Home
                   </Link>

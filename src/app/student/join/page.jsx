@@ -25,66 +25,66 @@ export default function StudentJoinPage() {
     }
 
     try {
-      // Find class by access code
-      const { data: classData, error: classError } = await supabase
-        .from("classes")
-        .select("id, name, description, is_active")
-        .eq("access_code", accessCode.toUpperCase())
-        .eq("is_active", true)
-        .single();
+      // 1. Buscar classe
+      const { data: classData, error: classError } = await supabase.rpc(
+        "get_public_class",
+        {
+          access_code_param: accessCode.trim(),
+        }
+      );
 
-      if (classError || !classData) {
+      if (classError || !classData || classData.length === 0) {
         setError("Invalid access code. Please check and try again.");
         setLoading(false);
         return;
       }
 
-      // Check if student already exists in this class
-      const { data: existingStudent } = await supabase
+      const selectedClass = classData[0];
+
+      // 2. Verificar se estudante já existe
+      const { data: existingStudent, error: selectError } = await supabase
         .from("students")
         .select("id")
-        .eq("class_id", classData.id)
+        .eq("class_id", selectedClass.id)
         .eq("name", studentName.trim())
-        .single();
+        .maybeSingle();
 
       let studentId;
 
       if (existingStudent) {
-        // Student already exists, use existing ID
         studentId = existingStudent.id;
       } else {
-        // Create new student
+        // 3. Criar novo estudante
         const { data: newStudent, error: studentError } = await supabase
           .from("students")
-          .insert([
-            {
-              name: studentName.trim(),
-              class_id: classData.id,
-            },
-          ])
-          .select()
+          .insert({
+            name: studentName.trim(),
+            class_id: selectedClass.id,
+          })
+          .select("id")
           .single();
 
-        if (studentError) throw studentError;
+        if (studentError) {
+          setError(`Error creating student: ${studentError.message}`);
+          setLoading(false);
+          return;
+        }
+
         studentId = newStudent.id;
       }
 
-      // Store student info in localStorage for session
-      localStorage.setItem(
-        "student_session",
-        JSON.stringify({
-          id: studentId,
-          name: studentName.trim(),
-          class_id: classData.id,
-          class_name: classData.name,
-        })
-      );
+      // 4. Salvar sessão do estudante
+      const sessionData = {
+        id: studentId,
+        name: studentName.trim(),
+        class_id: selectedClass.id,
+        class_name: selectedClass.name,
+      };
 
-      // Redirect to student dashboard
-      router.push(`/student/dashboard/${classData.id}`);
+      localStorage.setItem("student_session", JSON.stringify(sessionData));
+      router.push(`/student/dashboard/${selectedClass.id}`);
     } catch (err) {
-      console.error("Error joining class:", err);
-      setError("Something went wrong. Please try again.");
+      setError(`Something went wrong: ${err.message}`);
     } finally {
       setLoading(false);
     }

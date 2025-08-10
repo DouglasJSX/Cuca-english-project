@@ -6,8 +6,12 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/layout/MainLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { dbHelpers, supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 function ExercisesListContent() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const { user } = useAuth();
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +45,15 @@ function ExercisesListContent() {
   };
 
   const handleDelete = async (exerciseId) => {
-    if (!confirm("Are you sure you want to delete this exercise?")) return;
+    const confirmed = await confirm({
+      title: "Delete Exercise",
+      message: "Are you sure you want to delete this exercise?",
+      confirmText: "Yes",
+      cancelText: "Cancel",
+      type: "danger",
+    });
+
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase
@@ -56,7 +68,7 @@ function ExercisesListContent() {
       setExercises((prev) => prev.filter((ex) => ex.id !== exerciseId));
     } catch (err) {
       console.error("Error deleting exercise:", err);
-      alert("Error deleting exercise");
+      toast.error("Error deleting exercise");
     }
   };
 
@@ -250,9 +262,20 @@ function ExercisesListContent() {
                 )}
 
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">
-                    {exercise.classes?.name || "No class assigned"}
-                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {exercise.classes && exercise.classes.length > 0 ? (
+                      exercise.classes.map((cls, index) => (
+                        <span
+                          key={cls.id}
+                          className="inline-block px-2 py-1 bg-pastel-blue/20 text-brand-blue text-xs rounded-full"
+                        >
+                          {cls.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-gray-500">No class assigned</span>
+                    )}
+                  </div>
                   <span className="text-gray-500">
                     {new Date(exercise.created_at).toLocaleDateString()}
                   </span>

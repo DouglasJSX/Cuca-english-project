@@ -6,55 +6,69 @@ import Link from "next/link";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/layout/MainLayout";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase";
+import { supabase, dbHelpers } from "@/lib/supabase";
 import MultipleChoice from "@/components/exercises/ExerciseTypes/MultipleChoice";
 import FillBlank from "@/components/exercises/ExerciseTypes/FillBlank";
 import ArrangeWords from "@/components/exercises/ExerciseTypes/ArrangeWords";
 import FlashCards from "@/components/exercises/ExerciseTypes/FlashCards";
 import Matching from "@/components/exercises/ExerciseTypes/Matching";
 import Translation from "@/components/exercises/ExerciseTypes/Translation";
+import ExternalLink from "@/components/exercises/ExerciseTypes/ExternalLink";
+import { useToast } from "@/components/ui/Toast";
 
 function ExerciseEditContent() {
+  const { toast } = useToast();
   const { id } = useParams();
   const { user } = useAuth();
   const router = useRouter();
 
   const [exercise, setExercise] = useState(null);
+  const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
-  const [mode, setMode] = useState("editor"); // 'editor' or 'preview'
+  const [mode, setMode] = useState("editor"); // 'editor', 'preview', or 'student-preview'
 
   useEffect(() => {
     loadExercise();
+    loadClasses();
   }, [id, user]);
 
   const loadExercise = async () => {
     if (!user || !id) return;
 
     try {
-      const { data, error } = await supabase
-        .from("exercises")
-        .select(
-          `
-          *,
-          classes (name)
-        `
-        )
-        .eq("id", id)
-        .eq("teacher_id", user.id)
-        .single();
+      // Load exercise with classes
+      const { data, error } = await dbHelpers.getExerciseWithClasses(
+        id,
+        user.id
+      );
+      if (error) throw new Error(error);
 
-      if (error) throw error;
       setExercise(data);
+      setError(""); // Clear any previous errors
     } catch (err) {
       console.error("Error loading exercise:", err);
-      if (err.code === "PGRST116") {
+      if (err.message.includes("not found")) {
         router.push("/dashboard/exercises");
+      } else {
+        setError("Exercise not found or not available");
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadClasses = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await dbHelpers.getClasses(user.id);
+      if (error) throw new Error(error);
+      setClasses(data || []);
+    } catch (err) {
+      console.error("Error loading classes:", err);
     }
   };
 
@@ -74,6 +88,24 @@ function ExerciseEditContent() {
     setHasChanges(true);
   };
 
+  const handleClassToggle = (classId) => {
+    setExercise((prev) => {
+      const currentClassIds = prev.classes?.map((c) => c.id) || [];
+      const newClassIds = currentClassIds.includes(classId)
+        ? currentClassIds.filter((id) => id !== classId)
+        : [...currentClassIds, classId];
+
+      // Update classes array with full class objects
+      const newClasses = classes.filter((c) => newClassIds.includes(c.id));
+
+      return {
+        ...prev,
+        classes: newClasses,
+      };
+    });
+    setHasChanges(true);
+  };
+
   const saveExercise = async () => {
     if (!exercise || !hasChanges) return;
 
@@ -81,6 +113,7 @@ function ExerciseEditContent() {
     setError("");
 
     try {
+      // Update exercise basic info
       const { error } = await supabase
         .from("exercises")
         .update({
@@ -94,9 +127,16 @@ function ExerciseEditContent() {
 
       if (error) throw error;
 
+      // Update exercise-class associations
+      const classIds = exercise.classes?.map((c) => c.id) || [];
+      const { error: classError } = await dbHelpers.updateExerciseClasses(
+        id,
+        classIds
+      );
+      if (classError) throw new Error(classError);
+
       setHasChanges(false);
-      // Show success message (could be a toast)
-      alert("Exercise saved successfully!");
+      toast.success("Exercise saved successfully!");
     } catch (err) {
       setError(err.message || "Error saving exercise");
     } finally {
@@ -105,13 +145,26 @@ function ExerciseEditContent() {
   };
 
   const renderExerciseComponent = () => {
+    // Use "player" mode for student-preview to match /student/exercise/[id] behavior
+    const componentMode = mode === "student-preview" ? "player" : mode;
+
     switch (exercise?.type) {
+      case "ExternalLink":
+        return (
+          <ExternalLink
+            content={exercise.content}
+            onChange={handleContentChange}
+            mode={componentMode}
+            showOverview={mode === "student-preview"}
+          />
+        );
       case "MultipleChoice":
         return (
           <MultipleChoice
             content={exercise.content}
             onChange={handleContentChange}
-            mode={mode}
+            mode={componentMode}
+            showOverview={mode === "student-preview"}
           />
         );
       case "FillBlank":
@@ -119,7 +172,8 @@ function ExerciseEditContent() {
           <FillBlank
             content={exercise.content}
             onChange={handleContentChange}
-            mode={mode}
+            mode={componentMode}
+            showOverview={mode === "student-preview"}
           />
         );
       case "ArrangeWords":
@@ -127,7 +181,8 @@ function ExerciseEditContent() {
           <ArrangeWords
             content={exercise.content}
             onChange={handleContentChange}
-            mode={mode}
+            mode={componentMode}
+            showOverview={mode === "student-preview"}
           />
         );
       case "FlashCards":
@@ -135,7 +190,8 @@ function ExerciseEditContent() {
           <FlashCards
             content={exercise.content}
             onChange={handleContentChange}
-            mode={mode}
+            mode={componentMode}
+            showOverview={mode === "student-preview"}
           />
         );
       case "Matching":
@@ -143,7 +199,8 @@ function ExerciseEditContent() {
           <Matching
             content={exercise.content}
             onChange={handleContentChange}
-            mode={mode}
+            mode={componentMode}
+            showOverview={mode === "student-preview"}
           />
         );
       case "Translation":
@@ -151,7 +208,8 @@ function ExerciseEditContent() {
           <Translation
             content={exercise.content}
             onChange={handleContentChange}
-            mode={mode}
+            mode={componentMode}
+            showOverview={mode === "student-preview"}
           />
         );
       default:
@@ -196,6 +254,117 @@ function ExerciseEditContent() {
     );
   }
 
+  // Student Preview Layout
+  if (mode === "student-preview") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-neutral-light via-pastel-blue/20 to-pastel-mint/20">
+        <div className="container mx-auto px-4 py-8">
+          {/* Header */}
+          <div className="max-w-4xl mx-auto mb-8">
+            <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center space-x-3 mb-2">
+                    <button
+                      onClick={() => setMode("editor")}
+                      className="text-gray-400 hover:text-brand-blue transition-colors"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 19l-7-7 7-7"
+                        />
+                      </svg>
+                    </button>
+                    <div className="w-10 h-10 bg-gradient-to-br from-brand-blue to-brand-green rounded-lg flex items-center justify-center">
+                      <span className="text-white font-bold text-lg">E</span>
+                    </div>
+                    <div>
+                      <h1 className="text-2xl font-bold text-brand-blue-dark">
+                        {exercise.title}
+                      </h1>
+                      <div className="flex items-center space-x-2 text-sm text-gray-500">
+                        <span className="px-2 py-1 bg-brand-blue/10 text-brand-blue rounded-full">
+                          {exercise.type}
+                        </span>
+                        {exercise.classes?.length > 0 && (
+                          <span>
+                            • {exercise.classes.length} class
+                            {exercise.classes.length > 1 ? "es" : ""} assigned
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {exercise.description && (
+                    <p className="text-gray-600 mt-3">{exercise.description}</p>
+                  )}
+                </div>
+
+                {/* Student Preview Badge */}
+                <div className="text-center">
+                  <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                    <svg
+                      className="w-4 h-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                      />
+                    </svg>
+                    👁️ Student Preview
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Exercise Content */}
+          <div className="max-w-4xl mx-auto">{renderExerciseComponent()}</div>
+
+          {/* Footer */}
+          <div className="max-w-4xl mx-auto mt-12 text-center">
+            <div className="bg-white/50 backdrop-blur-sm rounded-xl p-6 border border-gray-200">
+              <div>
+                <p className="text-gray-600 mb-4">
+                  This shows exactly how students will see and interact with the
+                  exercise. You can navigate between cards using the buttons or
+                  by clicking directly on the cards.
+                </p>
+                <button
+                  onClick={() => setMode("editor")}
+                  className="text-brand-blue hover:text-brand-blue-dark transition-colors"
+                >
+                  ← Back to Editor
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Normal Editor/Preview Layout
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -226,7 +395,11 @@ function ExerciseEditContent() {
               </h1>
               <p className="text-sm text-gray-500 mt-1">
                 {exercise.type} •{" "}
-                {exercise.classes?.name || "No class assigned"}
+                {exercise.classes?.length > 0
+                  ? `${exercise.classes.length} class${
+                      exercise.classes.length > 1 ? "es" : ""
+                    } assigned`
+                  : "No class assigned"}
               </p>
             </div>
           </div>
@@ -236,7 +409,7 @@ function ExerciseEditContent() {
             <div className="flex bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setMode("editor")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   mode === "editor"
                     ? "bg-white text-brand-blue shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
@@ -245,14 +418,14 @@ function ExerciseEditContent() {
                 Editor
               </button>
               <button
-                onClick={() => setMode("preview")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  mode === "preview"
+                onClick={() => setMode("student-preview")}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  mode === "student-preview"
                     ? "bg-white text-brand-blue shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
               >
-                Preview
+                👁️ Student View
               </button>
             </div>
 
@@ -332,23 +505,63 @@ function ExerciseEditContent() {
             </div>
           </div>
 
-          <div className="mt-6">
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
-              Description
-            </label>
-            <textarea
-              id="description"
-              value={exercise.description || ""}
-              onChange={(e) =>
-                handleBasicInfoChange("description", e.target.value)
-              }
-              rows={3}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent"
-              placeholder="Brief description of the exercise..."
-            />
+          <div className="grid md:grid-cols-2 gap-6 mt-6">
+            <div>
+              <label
+                htmlFor="description"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Description
+              </label>
+              <textarea
+                id="description"
+                value={exercise.description || ""}
+                onChange={(e) =>
+                  handleBasicInfoChange("description", e.target.value)
+                }
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent"
+                placeholder="Brief description of the exercise..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Assign to Classes
+              </label>
+              <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                {classes.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No classes available</p>
+                ) : (
+                  classes.map((cls) => {
+                    const isSelected =
+                      exercise.classes?.some((c) => c.id === cls.id) || false;
+                    return (
+                      <label
+                        key={cls.id}
+                        className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleClassToggle(cls.id)}
+                          className="w-4 h-4 text-brand-blue bg-gray-100 border-gray-300 rounded focus:ring-brand-blue focus:ring-2"
+                        />
+                        <span className="text-sm text-gray-700">
+                          {cls.name}
+                        </span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+              {exercise.classes?.length > 0 && (
+                <p className="text-sm text-gray-600 mt-2">
+                  {exercise.classes.length} class
+                  {exercise.classes.length > 1 ? "es" : ""} selected
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -369,38 +582,6 @@ function ExerciseEditContent() {
 
         {renderExerciseComponent()}
       </div>
-
-      {/* Preview Info */}
-      {mode === "preview" && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-start space-x-3">
-            <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-              <svg
-                className="w-4 h-4 text-blue-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <div>
-              <h4 className="text-sm font-medium text-blue-900 mb-1">
-                Student Preview Mode
-              </h4>
-              <p className="text-sm text-blue-700">
-                This is how students will see and interact with your exercise.
-                Switch back to Editor mode to make changes.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

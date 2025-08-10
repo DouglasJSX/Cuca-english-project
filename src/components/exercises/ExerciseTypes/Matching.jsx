@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ImageUpload from "@/components/ui/ImageUpload";
 
 export default function Matching({
   content,
@@ -10,7 +11,9 @@ export default function Matching({
     content?.pairs || [
       {
         left: "",
+        leftImage: null,
         right: "",
+        rightImage: null,
       },
     ]
   );
@@ -23,7 +26,15 @@ export default function Matching({
   };
 
   const addPair = () => {
-    const newPairs = [...pairs, { left: "", right: "" }];
+    const newPairs = [
+      ...pairs,
+      {
+        left: "",
+        leftImage: null,
+        right: "",
+        rightImage: null,
+      },
+    ];
     updateContent(newPairs);
   };
 
@@ -124,6 +135,18 @@ export default function Matching({
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent"
                 rows={3}
               />
+
+              {/* Left Image */}
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Left Image (Optional)
+                </label>
+                <ImageUpload
+                  value={pair.leftImage}
+                  onChange={(url) => updatePair(pairIndex, "leftImage", url)}
+                  placeholder="Add image to left side"
+                />
+              </div>
             </div>
 
             {/* Right Side */}
@@ -138,6 +161,18 @@ export default function Matching({
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent"
                 rows={3}
               />
+
+              {/* Right Image */}
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Right Image (Optional)
+                </label>
+                <ImageUpload
+                  value={pair.rightImage}
+                  onChange={(url) => updatePair(pairIndex, "rightImage", url)}
+                  placeholder="Add image to right side"
+                />
+              </div>
             </div>
           </div>
 
@@ -148,6 +183,13 @@ export default function Matching({
             </p>
             <div className="flex items-center justify-between">
               <div className="flex-1 p-3 bg-brand-blue/10 border border-brand-blue/20 rounded-lg text-center">
+                {pair.leftImage && (
+                  <img
+                    src={pair.leftImage}
+                    alt="Left preview"
+                    className="w-full h-20 object-cover rounded mb-2"
+                  />
+                )}
                 <span className="font-medium text-brand-blue-dark">
                   {pair.left || "Left side content"}
                 </span>
@@ -170,6 +212,13 @@ export default function Matching({
               </div>
 
               <div className="flex-1 p-3 bg-brand-green/10 border border-brand-green/20 rounded-lg text-center">
+                {pair.rightImage && (
+                  <img
+                    src={pair.rightImage}
+                    alt="Right preview"
+                    className="w-full h-20 object-cover rounded mb-2"
+                  />
+                )}
                 <span className="font-medium text-brand-green-dark">
                   {pair.right || "Right side content"}
                 </span>
@@ -375,40 +424,88 @@ function MatchingPlayer({ pairs, onComplete }) {
           </button>
         </div>
 
-        {/* Show all matches */}
+        {/* Show results with matching performance */}
         <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100 text-left">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            All Matches:
-          </h3>
-          <div className="space-y-3">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Results:</h3>
+          <div className="space-y-4">
             {pairs
               .filter((p) => p.left.trim() && p.right.trim())
-              .map((pair, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
-                >
-                  <span className="font-medium text-green-800">
-                    {pair.left}
-                  </span>
-                  <svg
-                    className="w-5 h-5 text-green-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+              .map((pair, pairIndex) => {
+                const isMatched = Object.keys(matches).some(leftKey => {
+                  const leftIndex = parseInt(leftKey.split('-')[1]);
+                  return leftItems[leftIndex]?.left === pair.left;
+                });
+                
+                return (
+                  <div
+                    key={pairIndex}
+                    className="p-4 rounded-lg border border-gray-200 bg-gray-50"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    />
-                  </svg>
-                  <span className="font-medium text-green-800">
-                    {pair.right}
-                  </span>
-                </div>
-              ))}
+                    <div className="flex items-start mb-3">
+                      <span
+                        className={`w-6 h-6 rounded-full flex items-center justify-center mr-3 mt-0.5 flex-shrink-0 ${
+                          isMatched
+                            ? "bg-green-500 text-white"
+                            : "bg-red-500 text-white"
+                        }`}
+                      >
+                        {isMatched ? "✓" : "✗"}
+                      </span>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 mb-2">
+                          Pair {pairIndex + 1}
+                        </h4>
+                        
+                        <div className="flex items-center justify-between bg-white rounded-lg p-3 border">
+                          <div className="flex-1">
+                            <span className="text-sm font-medium text-gray-700">Term: </span>
+                            <span className="text-sm font-medium text-gray-900">"{pair.left}"</span>
+                          </div>
+                          
+                          <svg
+                            className={`w-5 h-5 mx-3 ${
+                              isMatched ? "text-green-600" : "text-gray-400"
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13 7l5 5m0 0l-5 5m5-5H6"
+                            />
+                          </svg>
+                          
+                          <div className="flex-1 text-right">
+                            <span className="text-sm font-medium text-gray-700">Definition: </span>
+                            <span className="text-sm font-medium text-gray-900">"{pair.right}"</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-2">
+                          <span className="text-sm font-medium text-gray-700">Result: </span>
+                          <span 
+                            className={`text-sm font-medium ${
+                              isMatched ? "text-green-600" : "text-red-600"
+                            }`}
+                          >
+                            {isMatched ? "Correctly matched" : "Not matched"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+          
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Performance Summary:</strong> {Object.keys(matches).length} out of {leftItems.length} pairs matched correctly 
+              in {attempts} attempts (Efficiency: {leftItems.length > 0 ? Math.round((leftItems.length / attempts) * 100) : 0}%)
+            </p>
           </div>
         </div>
       </div>
@@ -470,38 +567,48 @@ function MatchingPlayer({ pairs, onComplete }) {
                         : "bg-white border-gray-300 hover:border-brand-blue hover:bg-brand-blue/5"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{item.left}</span>
-                      {isMatched && (
-                        <svg
-                          className="w-5 h-5 text-green-600"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
+                    <div>
+                      {item.leftImage && (
+                        <img
+                          src={item.leftImage}
+                          alt="Left item"
+                          className="w-full h-16 object-cover rounded mb-2"
+                        />
                       )}
-                      {isSelected && !isMatched && (
-                        <svg
-                          className="w-5 h-5 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M13 7l5 5m0 0l-5 5m5-5H6"
-                          />
-                        </svg>
-                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{item.left}</span>
+                        {isMatched && (
+                          <svg
+                            className="w-5 h-5 text-green-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        )}
+                        {isSelected && !isMatched && (
+                          <svg
+                            className="w-5 h-5 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13 7l5 5m0 0l-5 5m5-5H6"
+                            />
+                          </svg>
+                        )}
+                        {/* icons... */}
+                      </div>
                     </div>
                   </button>
                 );
@@ -538,38 +645,47 @@ function MatchingPlayer({ pairs, onComplete }) {
                         : "bg-white border-gray-300 hover:border-brand-green hover:bg-brand-green/5"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{item.right}</span>
-                      {isMatched && (
-                        <svg
-                          className="w-5 h-5 text-green-600"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
+                    <div>
+                      {item.rightImage && (
+                        <img
+                          src={item.rightImage}
+                          alt="Right item"
+                          className="w-full h-16 object-cover rounded mb-2"
+                        />
                       )}
-                      {isWrongSelection && (
-                        <svg
-                          className="w-5 h-5 text-red-600"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{item.right}</span>
+                        {isMatched && (
+                          <svg
+                            className="w-5 h-5 text-green-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        )}
+                        {isWrongSelection && (
+                          <svg
+                            className="w-5 h-5 text-red-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        )}
+                      </div>
                     </div>
                   </button>
                 );

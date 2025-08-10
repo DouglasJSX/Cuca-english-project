@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import ImageUpload from "@/components/ui/ImageUpload";
 
 export default function ArrangeWords({
   content,
   onChange,
   mode = "editor",
   onComplete,
+  showOverview = false,
 }) {
   const [sentences, setSentences] = useState(
     content?.sentences || [
       {
         correct: "",
+        sentenceImage: null,
         words: [],
         shuffled: [],
       },
@@ -28,6 +31,7 @@ export default function ArrangeWords({
       ...sentences,
       {
         correct: "",
+        sentenceImage: null,
         words: [],
         shuffled: [],
       },
@@ -78,7 +82,7 @@ export default function ArrangeWords({
   };
 
   if (mode === "player") {
-    return <ArrangeWordsPlayer sentences={sentences} onComplete={onComplete} />;
+    return <ArrangeWordsPlayer sentences={sentences} onComplete={onComplete} showOverview={showOverview} />;
   }
 
   return (
@@ -167,6 +171,19 @@ export default function ArrangeWords({
                 Generate Words
               </button>
             </div>
+            {/* Sentence Image */}
+            <div className="my-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sentence Image (Optional)
+              </label>
+              <ImageUpload
+                value={sentence.sentenceImage}
+                onChange={(url) =>
+                  updateSentence(sentenceIndex, "sentenceImage", url)
+                }
+                placeholder="Add image to sentence"
+              />
+            </div>
           </div>
 
           {/* Generated Words */}
@@ -224,32 +241,35 @@ export default function ArrangeWords({
             </div>
           )}
 
-          {/* Preview */}
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
-            <div className="text-gray-900">
-              {sentence.correct ? (
-                <div className="space-y-2">
-                  <p>
-                    <strong>Task:</strong> Arrange the words to form the correct
-                    sentence
-                  </p>
-                  <p>
-                    <strong>Correct answer:</strong> "{sentence.correct}"
-                  </p>
-                  {sentence.words.length > 0 && (
-                    <p>
-                      <strong>Words to arrange:</strong> {sentence.words.length}{" "}
-                      words
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-gray-500 italic">
-                  Enter a sentence to see the preview...
+          <div className="text-gray-900">
+            {sentence.sentenceImage && (
+              <img
+                src={sentence.sentenceImage}
+                alt="Sentence preview"
+                className="w-full max-h-48 object-cover rounded-lg mb-4"
+              />
+            )}
+            {sentence.correct ? (
+              <div className="space-y-2">
+                <p>
+                  <strong>Task:</strong> Arrange the words to form the correct
+                  sentence
                 </p>
-              )}
-            </div>
+                <p>
+                  <strong>Correct answer:</strong> "{sentence.correct}"
+                </p>
+                {sentence.words.length > 0 && (
+                  <p>
+                    <strong>Words to arrange:</strong> {sentence.words.length}{" "}
+                    words
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-500 italic">
+                Enter a sentence to see the preview...
+              </p>
+            )}
           </div>
         </div>
       ))}
@@ -258,14 +278,14 @@ export default function ArrangeWords({
 }
 
 // Player component for students
-function ArrangeWordsPlayer({ sentences, onComplete }) {
+function ArrangeWordsPlayer({ sentences, onComplete, showOverview = false }) {
   const [currentSentence, setCurrentSentence] = useState(0);
   const [userArrangements, setUserArrangements] = useState({});
   const [showResults, setShowResults] = useState(false);
   const [draggedWord, setDraggedWord] = useState(null);
 
   // Initialize arrangements
-  useState(() => {
+  useEffect(() => {
     const initialArrangements = {};
     sentences.forEach((sentence, index) => {
       initialArrangements[index] = {
@@ -420,7 +440,7 @@ function ArrangeWordsPlayer({ sentences, onComplete }) {
           </button>
         </div>
 
-        {/* Show correct answers */}
+        {/* Show results with user answers and correct answers */}
         <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100 text-left">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Results:</h3>
           <div className="space-y-4">
@@ -434,13 +454,9 @@ function ArrangeWordsPlayer({ sentences, onComplete }) {
               return (
                 <div
                   key={sentenceIndex}
-                  className={`p-4 rounded-lg border ${
-                    isCorrect
-                      ? "bg-green-50 border-green-200"
-                      : "bg-red-50 border-red-200"
-                  }`}
+                  className="p-4 rounded-lg border border-gray-200 bg-gray-50"
                 >
-                  <div className="flex items-center mb-2">
+                  <div className="flex items-center mb-3">
                     <span
                       className={`w-6 h-6 rounded-full flex items-center justify-center mr-3 ${
                         isCorrect
@@ -450,16 +466,30 @@ function ArrangeWordsPlayer({ sentences, onComplete }) {
                     >
                       {isCorrect ? "✓" : "✗"}
                     </span>
-                    <span className="font-medium">
+                    <span className="font-medium text-gray-900">
                       Sentence {sentenceIndex + 1}
                     </span>
                   </div>
-                  <p className="text-sm">
-                    <strong>Your answer:</strong> "{userSentence}"
-                  </p>
-                  <p className="text-sm">
-                    <strong>Correct answer:</strong> "{sentence.correct}"
-                  </p>
+                  
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">Your answer: </span>
+                      <span 
+                        className={`text-sm font-medium ${
+                          isCorrect ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        "{userSentence}"
+                      </span>
+                    </div>
+                    
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">Correct answer: </span>
+                      <span className="text-sm font-medium text-green-600">
+                        "{sentence.correct}"
+                      </span>
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -501,6 +531,15 @@ function ArrangeWordsPlayer({ sentences, onComplete }) {
 
       {/* Exercise */}
       <div className="bg-white rounded-xl p-8 shadow-soft border border-gray-100">
+        {sentence.sentenceImage && (
+          <div className="mb-6">
+            <img
+              src={sentence.sentenceImage}
+              alt="Sentence context"
+              className="w-full max-h-64 object-contain rounded-lg mx-auto"
+            />
+          </div>
+        )}
         <h2 className="text-lg font-medium text-gray-700 mb-6 text-center">
           Arrange the words to form a correct sentence:
         </h2>
@@ -581,6 +620,35 @@ function ArrangeWordsPlayer({ sentences, onComplete }) {
           </button>
         </div>
       </div>
+
+      {/* Sentences Overview - Only show when in teacher preview mode */}
+      {showOverview && sentences.length > 1 && (
+        <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            All Sentences Overview
+          </h3>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sentences.map((sentence, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentSentence(index)}
+                className={`p-3 text-left rounded-lg border transition-all ${
+                  index === currentSentence
+                    ? "border-brand-blue bg-brand-blue/5"
+                    : "border-gray-200 hover:border-pastel-blue hover:bg-gray-50"
+                }`}
+              >
+                <div className="font-medium text-sm text-gray-900">
+                  Sentence {index + 1}
+                </div>
+                <div className="text-xs text-gray-500 mt-1 line-clamp-2">
+                  {sentence.correct || "No sentence text"}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

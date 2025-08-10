@@ -89,12 +89,27 @@ export const dbHelpers = {
     try {
       const { data, error } = await supabase
         .from("exercises")
-        .select("*, classes(name)")
+        .select(`
+          *,
+          exercise_classes (
+            classes (
+              id,
+              name
+            )
+          )
+        `)
         .eq("teacher_id", teacherId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return { data, error: null };
+      
+      // Transform data to include classes array
+      const transformedData = data?.map(exercise => ({
+        ...exercise,
+        classes: exercise.exercise_classes?.map(ec => ec.classes).filter(Boolean) || []
+      })) || [];
+
+      return { data: transformedData, error: null };
     } catch (error) {
       return { data: null, error: error.message };
     }
@@ -105,23 +120,96 @@ export const dbHelpers = {
     try {
       const { data, error } = await supabase
         .from("exercises")
-        .select(
-          `
+        .select(`
           id,
           title,
           description,
           type,
           content,
           is_active,
-          classes (name)
-        `
-        )
+          exercise_classes (
+            classes (
+              id,
+              name
+            )
+          )
+        `)
         .eq("id", exerciseId)
         .eq("is_active", true)
         .single();
 
       if (error) throw error;
-      return { data, error: null };
+      
+      // Transform data to include classes array
+      const transformedData = {
+        ...data,
+        classes: data.exercise_classes?.map(ec => ec.classes).filter(Boolean) || []
+      };
+
+      return { data: transformedData, error: null };
+    } catch (error) {
+      return { data: null, error: error.message };
+    }
+  },
+
+  // Exercise-Class relationship management
+  updateExerciseClasses: async (exerciseId, classIds) => {
+    try {
+      // First, remove existing associations
+      const { error: deleteError } = await supabase
+        .from("exercise_classes")
+        .delete()
+        .eq("exercise_id", exerciseId);
+
+      if (deleteError) throw deleteError;
+
+      // Then, add new associations
+      if (classIds && classIds.length > 0) {
+        const associations = classIds.map(classId => ({
+          exercise_id: exerciseId,
+          class_id: classId
+        }));
+
+        const { error: insertError } = await supabase
+          .from("exercise_classes")
+          .insert(associations);
+
+        if (insertError) throw insertError;
+      }
+
+      return { error: null };
+    } catch (error) {
+      return { error: error.message };
+    }
+  },
+
+  // Get exercise with classes for editing
+  getExerciseWithClasses: async (exerciseId, teacherId) => {
+    try {
+      const { data, error } = await supabase
+        .from("exercises")
+        .select(`
+          *,
+          exercise_classes (
+            classes (
+              id,
+              name
+            )
+          )
+        `)
+        .eq("id", exerciseId)
+        .eq("teacher_id", teacherId)
+        .single();
+
+      if (error) throw error;
+      
+      // Transform data to include classes array
+      const transformedData = {
+        ...data,
+        classes: data.exercise_classes?.map(ec => ec.classes).filter(Boolean) || []
+      };
+
+      return { data: transformedData, error: null };
     } catch (error) {
       return { data: null, error: error.message };
     }
