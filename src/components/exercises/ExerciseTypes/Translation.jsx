@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ImageUpload from "@/components/ui/ImageUpload";
 
 export default function Translation({
   content,
@@ -10,24 +11,15 @@ export default function Translation({
     content?.items || [
       {
         source: "",
+        sourceImage: null,
         target: "",
+        targetImage: null,
         language: "Portuguese",
       },
     ]
   );
 
-  const languages = [
-    "Portuguese",
-    "Spanish",
-    "French",
-    "German",
-    "Italian",
-    "Dutch",
-    "Russian",
-    "Chinese",
-    "Japanese",
-    "Korean",
-  ];
+  const languages = ["Portuguese"];
 
   const updateContent = (newItems) => {
     setItems(newItems);
@@ -41,7 +33,9 @@ export default function Translation({
       ...items,
       {
         source: "",
+        sourceImage: null,
         target: "",
+        targetImage: null,
         language: items[0]?.language || "Portuguese",
       },
     ];
@@ -177,6 +171,18 @@ export default function Translation({
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent"
                 rows={3}
               />
+
+              {/* Source Image */}
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Source Image (Optional)
+                </label>
+                <ImageUpload
+                  value={item.sourceImage}
+                  onChange={(url) => updateItem(itemIndex, "sourceImage", url)}
+                  placeholder="Add image to source text"
+                />
+              </div>
             </div>
 
             {/* Target Translation */}
@@ -201,6 +207,18 @@ export default function Translation({
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent"
                 rows={3}
               />
+
+              {/* Target Image */}
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Target Image (Optional)
+                </label>
+                <ImageUpload
+                  value={item.targetImage}
+                  onChange={(url) => updateItem(itemIndex, "targetImage", url)}
+                  placeholder="Add image to translation"
+                />
+              </div>
             </div>
           </div>
 
@@ -212,6 +230,13 @@ export default function Translation({
             <div className="flex items-center space-x-4">
               <div className="flex-1 p-3 bg-white border border-gray-300 rounded-lg">
                 <p className="text-xs text-gray-500 mb-1">English</p>
+                {item.sourceImage && (
+                  <img
+                    src={item.sourceImage}
+                    alt="Source preview"
+                    className="w-full h-20 object-cover rounded mb-2"
+                  />
+                )}
                 <p className="font-medium text-gray-900">
                   {item.source || "Source text will appear here..."}
                 </p>
@@ -235,6 +260,13 @@ export default function Translation({
 
               <div className="flex-1 p-3 bg-white border border-gray-300 rounded-lg">
                 <p className="text-xs text-gray-500 mb-1">{item.language}</p>
+                {item.targetImage && (
+                  <img
+                    src={item.targetImage}
+                    alt="Target preview"
+                    className="w-full h-20 object-cover rounded mb-2"
+                  />
+                )}
                 <p className="font-medium text-gray-900">
                   {item.target || "Translation will appear here..."}
                 </p>
@@ -522,10 +554,27 @@ function TranslationPlayer({ items, onComplete }) {
                     </p>
                     <p>
                       <strong>Your answer:</strong>{" "}
-                      {userAnswer || "(no answer)"}
+                      <span
+                        className={`font-medium ${
+                          result === "exact"
+                            ? "text-green-600"
+                            : result === "good"
+                            ? "text-blue-600"
+                            : result === "partial"
+                            ? "text-yellow-600"
+                            : result === "empty"
+                            ? "text-gray-500"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {userAnswer || "(no answer)"}
+                      </span>
                     </p>
                     <p>
-                      <strong>Correct answer:</strong> {item.target}
+                      <strong>Correct answer:</strong>{" "}
+                      <span className="font-medium text-green-600">
+                        {item.target}
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -570,6 +619,13 @@ function TranslationPlayer({ items, onComplete }) {
 
         {/* Source Text */}
         <div className="mb-6 p-6 bg-blue-50 border border-blue-200 rounded-lg text-center">
+          {currentItemData.sourceImage && (
+            <img
+              src={currentItemData.sourceImage}
+              alt="Source context"
+              className="w-full max-h-48 object-contain rounded-lg mx-auto mb-4"
+            />
+          )}
           <p className="text-xl font-medium text-gray-900 leading-relaxed">
             {currentItemData.source}
           </p>

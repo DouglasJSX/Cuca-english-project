@@ -6,8 +6,12 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/layout/MainLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { dbHelpers, supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 function ClassesListContent() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const { user } = useAuth();
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,13 +41,15 @@ function ClassesListContent() {
   };
 
   const handleDelete = async (classId, className) => {
-    if (
-      !confirm(
-        `Are you sure you want to delete "${className}"? This will also delete all students and exercises in this class.`
-      )
-    ) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: "Delete Exercise",
+      message: `Are you sure you want to delete "${className}"? This will also delete all students and exercises in this class.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      type: "danger",
+    });
+
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase
@@ -58,7 +64,7 @@ function ClassesListContent() {
       setClasses((prev) => prev.filter((cls) => cls.id !== classId));
     } catch (err) {
       console.error("Error deleting class:", err);
-      alert("Error deleting class");
+      toast.error("Error deleting class");
     }
   };
 
@@ -80,7 +86,7 @@ function ClassesListContent() {
       );
     } catch (err) {
       console.error("Error updating class status:", err);
-      alert("Error updating class status");
+      toast.error("Error updating class status");
     }
   };
 
@@ -88,10 +94,10 @@ function ClassesListContent() {
     try {
       await navigator.clipboard.writeText(accessCode);
       // Could add a toast notification here
-      alert("Access code copied to clipboard!");
+      toast.success("Access code copied to clipboard!");
     } catch (err) {
       console.error("Error copying to clipboard:", err);
-      alert("Could not copy access code");
+      toast.error("Could not copy access code");
     }
   };
 

@@ -55,16 +55,29 @@ export default function StudentDashboardPage() {
       if (classError) throw classError;
       setClassData(classInfo);
 
-      // Load exercises for this class
+      // Load exercises for this class - VERSÃO SIMPLIFICADA
       const { data: exercisesData, error: exercisesError } = await supabase
-        .from("exercises")
-        .select("*")
-        .eq("class_id", classId)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
+        .from("exercise_classes")
+        .select(`
+          exercises (
+            id,
+            title,
+            description,
+            type,
+            content,
+            is_active,
+            created_at,
+            updated_at
+          )
+        `)
+        .eq("class_id", classId);
+
+      // Transform the data to get just the exercises and filter active ones
+      const allExercises = exercisesData?.map(item => item.exercises).filter(Boolean) || [];
+      const exercises = allExercises.filter(exercise => exercise && exercise.is_active === true);
 
       if (exercisesError) throw exercisesError;
-      setExercises(exercisesData || []);
+      setExercises(exercises);
 
       // Load student results
       const { data: resultsData, error: resultsError } = await supabase

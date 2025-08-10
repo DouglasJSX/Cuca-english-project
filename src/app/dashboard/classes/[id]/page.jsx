@@ -7,8 +7,12 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/layout/MainLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 function ClassManageContent() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const { id } = useParams();
   const { user } = useAuth();
   const router = useRouter();
@@ -50,16 +54,34 @@ function ClassManageContent() {
       if (studentsError) throw studentsError;
       setStudents(studentsData || []);
 
-      // Load exercises
+      // Load exercises for this class
       const { data: exercisesData, error: exercisesError } = await supabase
-        .from("exercises")
-        .select("*")
+        .from("exercise_classes")
+        .select(`
+          exercises!inner (
+            id,
+            title,
+            description,
+            type,
+            content,
+            is_active,
+            created_at,
+            updated_at,
+            teacher_id
+          )
+        `)
         .eq("class_id", id)
-        .eq("teacher_id", user.id)
-        .order("created_at", { ascending: false });
+        .eq("exercises.teacher_id", user.id);
+
+      // Transform the data to get just the exercises
+      const exercises = exercisesData?.map(item => item.exercises)
+        .filter(Boolean)
+        .filter(exercise => exercise.teacher_id === user.id) || [];
+      // Sort by created_at descending
+      exercises.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       if (exercisesError) throw exercisesError;
-      setExercises(exercisesData || []);
+      setExercises(exercises);
     } catch (err) {
       console.error("Error loading class data:", err);
       if (err.code === "PGRST116") {
@@ -95,14 +117,22 @@ function ClassManageContent() {
       setNewStudentName("");
     } catch (err) {
       console.error("Error adding student:", err);
-      alert("Error adding student");
+      toast.error("Error adding student");
     } finally {
       setAddingStudent(false);
     }
   };
 
   const removeStudent = async (studentId, studentName) => {
-    if (!confirm(`Remove ${studentName} from this class?`)) return;
+    const confirmed = await confirm({
+      title: "Delete Student",
+      message: `Remove ${studentName} from this class?`,
+      confirmText: "Yes",
+      cancelText: "Cancel",
+      type: "danger",
+    });
+
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase
@@ -115,16 +145,16 @@ function ClassManageContent() {
       setStudents((prev) => prev.filter((s) => s.id !== studentId));
     } catch (err) {
       console.error("Error removing student:", err);
-      alert("Error removing student");
+      toast.error("Error removing student");
     }
   };
 
   const copyAccessCode = async () => {
     try {
       await navigator.clipboard.writeText(classData.access_code);
-      alert("Access code copied to clipboard!");
+      toast.success("Access code copied to clipboard!");
     } catch (err) {
-      alert("Could not copy access code");
+      toast.error("Could not copy access code");
     }
   };
 
@@ -132,9 +162,9 @@ function ClassManageContent() {
     const joinLink = `${window.location.origin}/student/join`;
     try {
       await navigator.clipboard.writeText(joinLink);
-      alert("Join link copied to clipboard!");
+      toast.success("Join link copied to clipboard!");
     } catch (err) {
-      alert("Could not copy join link");
+      toast.error("Could not copy join link");
     }
   };
 
@@ -538,17 +568,153 @@ function ClassManageContent() {
 
           {/* Settings Tab */}
           {activeTab === "settings" && (
-            <div className="space-y-6">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-yellow-800 text-sm">
-                  ⚠️ Settings functionality will be implemented in the next
-                  phase.
-                </p>
-              </div>
-            </div>
+            <ClassEditForm
+              classData={classData}
+              onUpdate={(updatedClass) => setClassData(updatedClass)}
+            />
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Componente de Edição da Turma
+function ClassEditForm({ classData, onUpdate }) {
+  const [formData, setFormData] = useState({
+    name: classData?.name || "",
+    description: classData?.description || "",
+    is_active: classData?.is_active || true,
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const { toast } = useToast();
+
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSaving(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("classes")
+        .update({
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          is_active: formData.is_active,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", classData.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      onUpdate(data);
+      toast.success("Class updated successfully!");
+    } catch (err) {
+      setError(err.message || "Error updating class");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Class Settings
+        </h3>
+        <p className="text-gray-600 text-sm mb-6">
+          Update your class information and settings.
+        </p>
+      </div>
+
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Class Name */}
+        <div>
+          <label
+            htmlFor="name"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
+            Class Name *
+          </label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            value={formData.name}
+            onChange={handleInputChange}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-transparent"
+            required
+            maxLength={255}
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label
+            htmlFor="description"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
+            Description
+          </label>
+          <textarea
+            id="description"
+            name="description"
+            value={formData.description}
+            onChange={handleInputChange}
+            rows={4}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-transparent"
+            placeholder="Describe the class level, schedule, or other relevant information..."
+          />
+        </div>
+
+        {/* Access Code Display */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Access Code
+          </label>
+          <div className="flex items-center justify-between">
+            <code className="text-xl font-mono font-bold text-brand-green">
+              {classData?.access_code}
+            </code>
+            <span className="text-sm text-gray-500">(Cannot be changed)</span>
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <div className="flex justify-end pt-4 border-t border-gray-100">
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-6 py-3 bg-brand-green text-white rounded-lg hover:bg-brand-green-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? (
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Saving...
+              </div>
+            ) : (
+              "Save Changes"
+            )}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

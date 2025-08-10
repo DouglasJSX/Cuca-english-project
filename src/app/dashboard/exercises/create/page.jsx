@@ -15,7 +15,7 @@ function CreateExerciseContent() {
     title: "",
     description: "",
     type: "",
-    classId: "",
+    classIds: [],
   });
 
   const [classes, setClasses] = useState([]);
@@ -24,6 +24,12 @@ function CreateExerciseContent() {
 
   // Exercise types with descriptions
   const exerciseTypes = [
+    {
+      value: "ExternalLink",
+      label: "External Link",
+      description: "Link to external tools (Quizlet, Kahoot, etc.)",
+      icon: "🔗",
+    },
     {
       value: "MultipleChoice",
       label: "Multiple Choice",
@@ -86,6 +92,15 @@ function CreateExerciseContent() {
     }));
   };
 
+  const handleClassToggle = (classId) => {
+    setFormData((prev) => ({
+      ...prev,
+      classIds: prev.classIds.includes(classId)
+        ? prev.classIds.filter(id => id !== classId)
+        : [...prev.classIds, classId]
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -105,11 +120,10 @@ function CreateExerciseContent() {
         description: formData.description,
         type: formData.type,
         teacher_id: user.id,
-        class_id: formData.classId || null,
         content: getInitialContent(formData.type),
       };
 
-      const { data, error } = await supabase
+      const { data: exercise, error } = await supabase
         .from("exercises")
         .insert([exerciseData])
         .select()
@@ -117,8 +131,17 @@ function CreateExerciseContent() {
 
       if (error) throw error;
 
+      // Associate exercise with selected classes
+      if (formData.classIds.length > 0) {
+        const { error: classError } = await dbHelpers.updateExerciseClasses(
+          exercise.id, 
+          formData.classIds
+        );
+        if (classError) throw new Error(classError);
+      }
+
       // Redirect to exercise editor
-      router.push(`/dashboard/exercises/${data.id}`);
+      router.push(`/dashboard/exercises/${exercise.id}`);
     } catch (err) {
       setError(err.message || "Error creating exercise");
     } finally {
@@ -128,6 +151,9 @@ function CreateExerciseContent() {
 
   const getInitialContent = (type) => {
     const templates = {
+      ExternalLink: {
+        url: "",
+      },
       MultipleChoice: {
         questions: [
           {
@@ -212,26 +238,34 @@ function CreateExerciseContent() {
             </div>
 
             <div>
-              <label
-                htmlFor="classId"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Assign to Class (Optional)
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Assign to Classes (Optional)
               </label>
-              <select
-                id="classId"
-                name="classId"
-                value={formData.classId}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent"
-              >
-                <option value="">No specific class</option>
-                {classes.map((cls) => (
-                  <option key={cls.id} value={cls.id}>
-                    {cls.name}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                {classes.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No classes available</p>
+                ) : (
+                  classes.map((cls) => (
+                    <label
+                      key={cls.id}
+                      className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.classIds.includes(cls.id)}
+                        onChange={() => handleClassToggle(cls.id)}
+                        className="w-4 h-4 text-brand-blue bg-gray-100 border-gray-300 rounded focus:ring-brand-blue focus:ring-2"
+                      />
+                      <span className="text-sm text-gray-700">{cls.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+              {formData.classIds.length > 0 && (
+                <p className="text-sm text-gray-600 mt-2">
+                  {formData.classIds.length} class{formData.classIds.length > 1 ? 'es' : ''} selected
+                </p>
+              )}
             </div>
           </div>
 

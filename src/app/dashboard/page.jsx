@@ -5,7 +5,7 @@ import Link from "next/link";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/layout/MainLayout";
 import { useAuth } from "@/hooks/useAuth";
-import { dbHelpers } from "@/lib/supabase";
+import { dbHelpers, supabase } from "@/lib/supabase";
 
 function DashboardContent() {
   const { user } = useAuth();
@@ -25,13 +25,16 @@ function DashboardContent() {
     if (!user) return;
 
     try {
-      // Get classes
-      const { data: classes } = await dbHelpers.getClasses(user.id);
+      // Load classes WITH stats (usar a view que tem student_count)
+      const { data: classes } = await supabase
+        .from("classes_with_stats")
+        .select("*")
+        .eq("teacher_id", user.id);
 
-      // Get exercises
+      // Load exercises
       const { data: exercises } = await dbHelpers.getExercises(user.id);
 
-      // Calculate total students (mock for now)
+      // Calculate total students corretamente
       const totalStudents =
         classes?.reduce((acc, cls) => acc + (cls.student_count || 0), 0) || 0;
 
