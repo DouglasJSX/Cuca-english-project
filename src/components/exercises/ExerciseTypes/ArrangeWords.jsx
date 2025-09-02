@@ -347,6 +347,8 @@ function ArrangeWordsPlayer({ sentences, onComplete, showOverview = false }) {
     if (currentSentence < sentences.length - 1) {
       setCurrentSentence((prev) => prev + 1);
     } else {
+      // Calculate and save score before showing results
+      calculateScore();
       setShowResults(true);
     }
   };

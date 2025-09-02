@@ -334,7 +334,11 @@ function MatchingPlayer({ pairs, onComplete }) {
 
         // Check if all matches are complete
         if (Object.keys(matches).length + 1 === leftItems.length) {
-          setTimeout(() => setShowResults(true), 500);
+          setTimeout(() => {
+            // Calculate and save score before showing results
+            calculateScore();
+            setShowResults(true);
+          }, 500);
         }
       } else {
         // Incorrect match - show briefly then reset

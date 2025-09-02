@@ -337,6 +337,8 @@ function TranslationPlayer({ items, onComplete }) {
     if (currentItem < validItems.length - 1) {
       setCurrentItem((prev) => prev + 1);
     } else {
+      // Calculate and save score before showing results
+      calculateScore();
       setShowResults(true);
     }
   };
