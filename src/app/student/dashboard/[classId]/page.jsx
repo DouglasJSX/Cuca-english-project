@@ -78,6 +78,8 @@ export default function StudentDashboardPage() {
             type,
             content,
             is_active,
+            is_homework,
+            due_date,
             created_at,
             updated_at
           )
@@ -86,7 +88,26 @@ export default function StudentDashboardPage() {
 
       // Transform the data to get just the exercises and filter active ones
       const allExercises = exercisesData?.map(item => item.exercises).filter(Boolean) || [];
-      const exercises = allExercises.filter(exercise => exercise && exercise.is_active === true);
+      const activeExercises = allExercises.filter(exercise => exercise && exercise.is_active === true);
+      
+      // Sort exercises: homework first (by due date), then regular exercises
+      const exercises = activeExercises.sort((a, b) => {
+        // Homework exercises come first
+        if (a.is_homework && !b.is_homework) return -1;
+        if (!a.is_homework && b.is_homework) return 1;
+        
+        // If both are homework, sort by due date (earliest first)
+        if (a.is_homework && b.is_homework) {
+          if (a.due_date && b.due_date) {
+            return new Date(a.due_date) - new Date(b.due_date);
+          }
+          if (a.due_date && !b.due_date) return -1;
+          if (!a.due_date && b.due_date) return 1;
+        }
+        
+        // For regular exercises, sort by creation date (newest first)
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
 
       if (exercisesError) throw exercisesError;
       setExercises(exercises);
@@ -371,28 +392,54 @@ export default function StudentDashboardPage() {
                     <Link
                       key={exercise.id}
                       href={`/student/exercise/${exercise.id}?studentId=${student.id}`}
-                      className="block p-6 border border-gray-200 rounded-lg hover:border-brand-blue hover:shadow-md transition-all card-hover"
+                      className={`block p-6 rounded-lg hover:shadow-md transition-all card-hover ${
+                        exercise.is_homework
+                          ? "border-2 border-orange-300 bg-gradient-to-r from-orange-50 to-orange-100/50 hover:border-orange-400"
+                          : "border border-gray-200 hover:border-brand-blue"
+                      }`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
-                          <div className="w-12 h-12 bg-brand-blue/20 rounded-lg flex items-center justify-center">
-                            <span className="text-brand-blue text-lg">
-                              {exerciseIcons[exercise.type] || "📝"}
+                          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                            exercise.is_homework
+                              ? "bg-orange-200 text-orange-700"
+                              : "bg-brand-blue/20 text-brand-blue"
+                          }`}>
+                            <span className="text-lg">
+                              {exercise.is_homework ? "📚" : exerciseIcons[exercise.type] || "📝"}
                             </span>
                           </div>
 
-                          <div>
-                            <h3 className="font-semibold text-gray-900 mb-1">
-                              {exercise.title}
-                            </h3>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold text-gray-900">
+                                {exercise.title}
+                              </h3>
+                              {exercise.is_homework && (
+                                <span className="px-2 py-1 bg-orange-600 text-white text-xs font-bold rounded-full">
+                                  HOMEWORK
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center space-x-3 text-sm text-gray-500">
-                              <span className="px-2 py-1 bg-brand-blue/10 text-brand-blue rounded-full">
+                              <span className={`px-2 py-1 rounded-full ${
+                                exercise.is_homework
+                                  ? "bg-orange-200 text-orange-700"
+                                  : "bg-brand-blue/10 text-brand-blue"
+                              }`}>
                                 {exercise.type}
                               </span>
                               {exercise.description && (
                                 <span>{exercise.description}</span>
                               )}
                             </div>
+                            {exercise.is_homework && exercise.due_date && (
+                              <div className="mt-2 flex items-center text-sm">
+                                <span className="text-orange-700 font-medium">
+                                  📅 Due: {new Date(exercise.due_date).toLocaleDateString('en-GB')} at {new Date(exercise.due_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
 

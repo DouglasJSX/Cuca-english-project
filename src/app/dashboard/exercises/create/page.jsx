@@ -16,6 +16,8 @@ function CreateExerciseContent() {
     description: "",
     type: "",
     classIds: [],
+    isHomework: false,
+    dueDate: "",
   });
 
   const [classes, setClasses] = useState([]);
@@ -113,6 +115,13 @@ function CreateExerciseContent() {
       return;
     }
 
+    // Homework validation
+    if (formData.isHomework && !formData.dueDate) {
+      setError("Please set a due date for homework exercises");
+      setLoading(false);
+      return;
+    }
+
     try {
       // Create basic exercise structure
       const exerciseData = {
@@ -121,6 +130,8 @@ function CreateExerciseContent() {
         type: formData.type,
         teacher_id: user.id,
         content: getInitialContent(formData.type),
+        is_homework: formData.isHomework,
+        due_date: formData.isHomework && formData.dueDate ? new Date(formData.dueDate).toISOString() : null,
       };
 
       const { data: exercise, error } = await supabase
@@ -285,6 +296,57 @@ function CreateExerciseContent() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent"
               placeholder="Brief description of what students will learn..."
             />
+          </div>
+
+          {/* Homework Settings */}
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+              <span className="mr-2">📚</span>
+              Homework Settings
+            </h3>
+            
+            <div className="flex items-center space-x-3">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isHomework}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    isHomework: e.target.checked,
+                    dueDate: e.target.checked ? prev.dueDate : ""
+                  }))}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                <span className="ml-3 text-sm font-medium text-gray-900">
+                  Mark as Homework
+                </span>
+              </label>
+            </div>
+
+            {formData.isHomework && (
+              <div className="mt-4">
+                <label
+                  htmlFor="dueDate"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Due Date *
+                </label>
+                <input
+                  type="datetime-local"
+                  id="dueDate"
+                  name="dueDate"
+                  value={formData.dueDate}
+                  onChange={handleInputChange}
+                  min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  required={formData.isHomework}
+                />
+                <p className="text-sm text-gray-600 mt-1">
+                  Students will see this exercise prioritized in their dashboard with the due date.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Exercise Type Selection */}
