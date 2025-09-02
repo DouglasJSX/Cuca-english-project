@@ -56,19 +56,13 @@ export default function ExercisePreviewPage() {
     if (!studentId || !exercise) return;
 
     try {
-      const resultData = {
-        exercise_id: exercise.id,
-        student_id: studentId,
-        score: Math.round(score),
-        time_taken: timeSpent,
-        completed_at: new Date().toISOString(),
-      };
-
-      const { error } = await supabase
-        .from("exercise_results")
-        .upsert(resultData, {
-          onConflict: "exercise_id,student_id",
-        });
+      const { error } = await supabase.rpc('save_exercise_result', {
+        p_exercise_id: exercise.id,
+        p_student_id: studentId,
+        p_score: Math.round(score),
+        p_time_taken: timeSpent,
+        p_completed_at: new Date().toISOString()
+      });
 
       if (error) throw error;
     } catch (err) {

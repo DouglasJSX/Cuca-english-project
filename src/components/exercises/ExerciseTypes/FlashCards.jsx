@@ -235,6 +235,8 @@ function FlashCardsPlayer({ cards, onComplete }) {
       setCurrentCard((prev) => prev + 1);
       setIsFlipped(false);
     } else {
+      // Calculate and save score before showing results
+      calculateScore();
       setShowResults(true);
     }
   };

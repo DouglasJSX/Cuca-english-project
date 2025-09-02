@@ -302,6 +302,7 @@ function MultipleChoicePlayer({ questions, onComplete, showOverview = false }) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
+  const [finalScore, setFinalScore] = useState(0);
 
   const handleAnswerSelect = (optionIndex) => {
     setSelectedAnswers((prev) => ({
@@ -314,6 +315,9 @@ function MultipleChoicePlayer({ questions, onComplete, showOverview = false }) {
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion((prev) => prev + 1);
     } else {
+      // Calculate and save score before showing results
+      const score = calculateScore();
+      setFinalScore(score);
       setShowResults(true);
     }
   };
@@ -344,10 +348,12 @@ function MultipleChoicePlayer({ questions, onComplete, showOverview = false }) {
     setCurrentQuestion(0);
     setSelectedAnswers({});
     setShowResults(false);
+    setFinalScore(0);
   };
 
   if (showResults) {
-    const score = calculateScore();
+    // Use the finalScore that was calculated when finishing the quiz
+    const score = finalScore;
     return (
       <div className="max-w-2xl mx-auto text-center space-y-6">
         <div className="bg-white rounded-xl p-8 shadow-soft border border-gray-100">

@@ -42,6 +42,18 @@ export default function StudentDashboardPage() {
     loadDashboardData(studentData);
   }, [classId, router]);
 
+  // Reload data when the page becomes visible (user returns from exercise)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && student) {
+        loadDashboardData(student);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [student]);
+
   const loadDashboardData = async (studentData) => {
     try {
       // Load class data
@@ -80,10 +92,9 @@ export default function StudentDashboardPage() {
       setExercises(exercises);
 
       // Load student results
-      const { data: resultsData, error: resultsError } = await supabase
-        .from("exercise_results")
-        .select("exercise_id, score, completed_at")
-        .eq("student_id", studentData.id);
+      const { data: resultsData, error: resultsError } = await supabase.rpc('get_student_results', {
+        p_student_id: studentData.id
+      });
 
       if (resultsError) throw resultsError;
 
