@@ -1,48 +1,48 @@
-import { Plus_Jakarta_Sans } from "next/font/google";
-import { AuthProvider } from "@/hooks/useAuth";
-import "./globals.css";
-import { ToastProvider } from "@/components/ui/Toast";
-import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
+import { Plus_Jakarta_Sans } from 'next/font/google';
+import { AuthProvider } from '@/hooks/useAuth';
+import './globals.css';
+import { ToastProvider } from '@/components/ui/Toast';
+import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
 
 const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-plus-jakarta",
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-plus-jakarta',
 });
 
 export const metadata = {
-  title: "English Exercises Manager",
+  title: 'English Classes and Exercises Manager',
   description:
-    "A simple and efficient platform for English teachers to create and manage exercises for their students.",
+    'A simple and efficient platform for English teachers to create and manage exercises for their students.',
   keywords: [
-    "english",
-    "exercises",
-    "education",
-    "teacher",
-    "students",
-    "learning",
+    'english',
+    'exercises',
+    'education',
+    'teacher',
+    'students',
+    'learning',
   ],
-  authors: [{ name: "English Exercises Team" }],
-  creator: "English Exercises Manager",
-  publisher: "English Exercises Manager",
+  authors: [{ name: 'English Exercises Team' }],
+  creator: 'English Classes and Exercises Manager',
+  publisher: 'English Classes and Exercises Manager',
   robots: {
     index: true,
     follow: true,
   },
   openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: "https://your-domain.com",
-    title: "English Exercises Manager",
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://your-domain.com',
+    title: 'English Classes and Exercises Manager',
     description:
-      "A simple and efficient platform for English teachers to create and manage exercises for their students.",
-    siteName: "English Exercises Manager",
+      'A simple and efficient platform for English teachers to create and manage exercises for their students.',
+    siteName: 'English Classes and Exercises Manager',
   },
   twitter: {
-    card: "summary_large_image",
-    title: "English Exercises Manager",
+    card: 'summary_large_image',
+    title: 'English Classes and Exercises Manager',
     description:
-      "A simple and efficient platform for English teachers to create and manage exercises for their students.",
+      'A simple and efficient platform for English teachers to create and manage exercises for their students.',
   },
 };
 

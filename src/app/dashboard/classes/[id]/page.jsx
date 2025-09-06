@@ -1,14 +1,39 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { DashboardLayout } from "@/components/layout/MainLayout";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase";
-import { useToast } from "@/components/ui/Toast";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { DashboardLayout } from '@/components/layout/MainLayout';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import dynamic from 'next/dynamic';
+
+const RichTextEditor = dynamic(() => import('@/components/ui/RichTextEditor'), {
+  ssr: false,
+  loading: () => (
+    <div className="border border-gray-300 rounded-lg bg-white">
+      <div className="border-b border-gray-200 p-3 bg-gray-50">
+        <div className="flex space-x-2">
+          {Array.from({ length: 8 }, (_, i) => (
+            <div
+              key={i}
+              className="w-8 h-8 bg-gray-200 rounded animate-pulse"
+            ></div>
+          ))}
+        </div>
+      </div>
+      <div className="p-4 min-h-[300px] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
+          <p className="text-gray-500 text-sm">Loading editor...</p>
+        </div>
+      </div>
+    </div>
+  ),
+});
 
 function ClassManageContent() {
   const { toast } = useToast();
@@ -21,9 +46,11 @@ function ClassManageContent() {
   const [students, setStudents] = useState([]);
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [newStudentName, setNewStudentName] = useState("");
+  const [activeTab, setActiveTab] = useState('overview');
+  const [newStudentName, setNewStudentName] = useState('');
   const [addingStudent, setAddingStudent] = useState(false);
+  const [lessonPlanContent, setLessonPlanContent] = useState('');
+  const [savingLessonPlan, setSavingLessonPlan] = useState(false);
 
   useEffect(() => {
     loadClassData();
@@ -35,29 +62,31 @@ function ClassManageContent() {
     try {
       // Load class info
       const { data: classInfo, error: classError } = await supabase
-        .from("classes")
-        .select("*")
-        .eq("id", id)
-        .eq("teacher_id", user.id)
+        .from('classes')
+        .select('*')
+        .eq('id', id)
+        .eq('teacher_id', user.id)
         .single();
 
       if (classError) throw classError;
       setClassData(classInfo);
+      setLessonPlanContent(classInfo.lesson_plan || '');
 
       // Load students
       const { data: studentsData, error: studentsError } = await supabase
-        .from("students")
-        .select("*")
-        .eq("class_id", id)
-        .order("name");
+        .from('students')
+        .select('*')
+        .eq('class_id', id)
+        .order('name');
 
       if (studentsError) throw studentsError;
       setStudents(studentsData || []);
 
       // Load exercises for this class
       const { data: exercisesData, error: exercisesError } = await supabase
-        .from("exercise_classes")
-        .select(`
+        .from('exercise_classes')
+        .select(
+          `
           exercises!inner (
             id,
             title,
@@ -69,23 +98,26 @@ function ClassManageContent() {
             updated_at,
             teacher_id
           )
-        `)
-        .eq("class_id", id)
-        .eq("exercises.teacher_id", user.id);
+        `
+        )
+        .eq('class_id', id)
+        .eq('exercises.teacher_id', user.id);
 
       // Transform the data to get just the exercises
-      const exercises = exercisesData?.map(item => item.exercises)
-        .filter(Boolean)
-        .filter(exercise => exercise.teacher_id === user.id) || [];
+      const exercises =
+        exercisesData
+          ?.map((item) => item.exercises)
+          .filter(Boolean)
+          .filter((exercise) => exercise.teacher_id === user.id) || [];
       // Sort by created_at descending
       exercises.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       if (exercisesError) throw exercisesError;
       setExercises(exercises);
     } catch (err) {
-      console.error("Error loading class data:", err);
-      if (err.code === "PGRST116") {
-        router.push("/dashboard/classes");
+      console.error('Error loading class data:', err);
+      if (err.code === 'PGRST116') {
+        router.push('/dashboard/classes');
       }
     } finally {
       setLoading(false);
@@ -99,7 +131,7 @@ function ClassManageContent() {
     setAddingStudent(true);
     try {
       const { data, error } = await supabase
-        .from("students")
+        .from('students')
         .insert([
           {
             name: newStudentName.trim(),
@@ -114,10 +146,10 @@ function ClassManageContent() {
       setStudents((prev) =>
         [...prev, data].sort((a, b) => a.name.localeCompare(b.name))
       );
-      setNewStudentName("");
+      setNewStudentName('');
     } catch (err) {
-      console.error("Error adding student:", err);
-      toast.error("Error adding student");
+      console.error('Error adding student:', err);
+      toast.error('Error adding student');
     } finally {
       setAddingStudent(false);
     }
@@ -125,36 +157,36 @@ function ClassManageContent() {
 
   const removeStudent = async (studentId, studentName) => {
     const confirmed = await confirm({
-      title: "Delete Student",
+      title: 'Delete Student',
       message: `Remove ${studentName} from this class?`,
-      confirmText: "Yes",
-      cancelText: "Cancel",
-      type: "danger",
+      confirmText: 'Yes',
+      cancelText: 'Cancel',
+      type: 'danger',
     });
 
     if (!confirmed) return;
 
     try {
       const { error } = await supabase
-        .from("students")
+        .from('students')
         .delete()
-        .eq("id", studentId);
+        .eq('id', studentId);
 
       if (error) throw error;
 
       setStudents((prev) => prev.filter((s) => s.id !== studentId));
     } catch (err) {
-      console.error("Error removing student:", err);
-      toast.error("Error removing student");
+      console.error('Error removing student:', err);
+      toast.error('Error removing student');
     }
   };
 
   const copyAccessCode = async () => {
     try {
       await navigator.clipboard.writeText(classData.access_code);
-      toast.success("Access code copied to clipboard!");
+      toast.success('Access code copied to clipboard!');
     } catch (err) {
-      toast.error("Could not copy access code");
+      toast.error('Could not copy access code');
     }
   };
 
@@ -162,9 +194,29 @@ function ClassManageContent() {
     const joinLink = `${window.location.origin}/student/join`;
     try {
       await navigator.clipboard.writeText(joinLink);
-      toast.success("Join link copied to clipboard!");
+      toast.success('Join link copied to clipboard!');
     } catch (err) {
-      toast.error("Could not copy join link");
+      toast.error('Could not copy join link');
+    }
+  };
+
+  const saveLessonPlan = async () => {
+    setSavingLessonPlan(true);
+
+    try {
+      const { error } = await supabase
+        .from('classes')
+        .update({ lesson_plan: lessonPlanContent })
+        .eq('id', id)
+        .eq('teacher_id', user.id);
+
+      if (error) throw error;
+
+      toast.success('Lesson plan saved successfully!');
+    } catch (err) {
+      toast.error('Error saving lesson plan: ' + err.message);
+    } finally {
+      setSavingLessonPlan(false);
     }
   };
 
@@ -200,10 +252,11 @@ function ClassManageContent() {
   }
 
   const tabs = [
-    { id: "overview", label: "Overview", icon: "📊" },
-    { id: "students", label: "Students", icon: "👥" },
-    { id: "exercises", label: "Exercises", icon: "📝" },
-    { id: "settings", label: "Settings", icon: "⚙️" },
+    { id: 'overview', label: 'Overview', icon: '📊' },
+    { id: 'students', label: 'Students', icon: '👥' },
+    { id: 'exercises', label: 'Exercises', icon: '📝' },
+    { id: 'lessonplan', label: 'Lesson Plans', icon: '📋' },
+    { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];
 
   return (
@@ -237,11 +290,11 @@ function ClassManageContent() {
               <span
                 className={`px-3 py-1 text-sm rounded-full ${
                   classData.is_active
-                    ? "bg-green-100 text-green-700"
-                    : "bg-gray-100 text-gray-600"
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                {classData.is_active ? "Active" : "Inactive"}
+                {classData.is_active ? 'Active' : 'Inactive'}
               </span>
             </div>
             {classData.description && (
@@ -270,8 +323,8 @@ function ClassManageContent() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
-                    ? "border-brand-green text-brand-green"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
+                    ? 'border-brand-green text-brand-green'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <span className="mr-2">{tab.icon}</span>
@@ -283,7 +336,7 @@ function ClassManageContent() {
 
         <div className="p-6">
           {/* Overview Tab */}
-          {activeTab === "overview" && (
+          {activeTab === 'overview' && (
             <div className="space-y-6">
               {/* Stats */}
               <div className="grid md:grid-cols-3 gap-6">
@@ -417,7 +470,7 @@ function ClassManageContent() {
           )}
 
           {/* Students Tab */}
-          {activeTab === "students" && (
+          {activeTab === 'students' && (
             <div className="space-y-6">
               {/* Add Student Form */}
               <div className="bg-gray-50 rounded-lg p-6">
@@ -438,7 +491,7 @@ function ClassManageContent() {
                     disabled={addingStudent || !newStudentName.trim()}
                     className="px-6 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-green-dark transition-colors disabled:opacity-50"
                   >
-                    {addingStudent ? "Adding..." : "Add"}
+                    {addingStudent ? 'Adding...' : 'Add'}
                   </button>
                 </form>
               </div>
@@ -468,7 +521,7 @@ function ClassManageContent() {
                             {student.name}
                           </p>
                           <p className="text-sm text-gray-500">
-                            Joined{" "}
+                            Joined{' '}
                             {new Date(student.joined_at).toLocaleDateString()}
                           </p>
                         </div>
@@ -499,7 +552,7 @@ function ClassManageContent() {
           )}
 
           {/* Exercises Tab */}
-          {activeTab === "exercises" && (
+          {activeTab === 'exercises' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -566,8 +619,91 @@ function ClassManageContent() {
             </div>
           )}
 
+          {/* Lesson Plans Tab */}
+          {activeTab === 'lessonplan' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Lesson Plans
+                  </h3>
+                  <p className="text-gray-600 text-sm mt-1">
+                    Document your class curriculum, homework assignments, and
+                    lesson progression
+                  </p>
+                </div>
+                <button
+                  onClick={saveLessonPlan}
+                  disabled={savingLessonPlan}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {savingLessonPlan ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>💾</span>
+                      <span>Save Plan</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="bg-white rounded-lg border border-gray-200">
+                <RichTextEditor
+                  content={lessonPlanContent}
+                  onChange={setLessonPlanContent}
+                  placeholder="Start writing your lesson plan... 
+
+Some ideas to get you started:
+📚 Week 1: Introduction to Basic Grammar
+• Present tense verbs
+• Common nouns and adjectives  
+• Homework: Exercise #1 - Grammar Basics
+
+📚 Week 2: Conversation Practice
+• Greetings and introductions
+• Asking questions
+• Homework: Record yourself introducing yourself (2 min)
+
+✅ Topics covered:
+☐ Past tense
+☐ Future tense  
+☐ Vocabulary: Family members
+☑ Vocabulary: Daily routines
+
+🔗 Useful resources: 
+- https://englishgrammar101.com
+- Quizlet flashcard sets"
+                />
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <span className="text-blue-400 text-lg">💡</span>
+                  </div>
+                  <div className="ml-3">
+                    <h4 className="text-sm font-medium text-blue-900">
+                      Tips for effective lesson planning:
+                    </h4>
+                    <ul className="mt-2 text-sm text-blue-800 space-y-1">
+                      <li>• Use headings to organize by week or topic</li>
+                      <li>• Create checklists for topics covered</li>
+                      <li>• Link homework exercises directly to students</li>
+                      <li>• Add external resource links for extra practice</li>
+                      <li>• Use colors to highlight important deadlines</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Settings Tab */}
-          {activeTab === "settings" && (
+          {activeTab === 'settings' && (
             <ClassEditForm
               classData={classData}
               onUpdate={(updatedClass) => setClassData(updatedClass)}
@@ -582,46 +718,46 @@ function ClassManageContent() {
 // Componente de Edição da Turma
 function ClassEditForm({ classData, onUpdate }) {
   const [formData, setFormData] = useState({
-    name: classData?.name || "",
-    description: classData?.description || "",
+    name: classData?.name || '',
+    description: classData?.description || '',
     is_active: classData?.is_active || true,
   });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const { toast } = useToast();
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setSaving(true);
 
     try {
       const { data, error } = await supabase
-        .from("classes")
+        .from('classes')
         .update({
           name: formData.name.trim(),
           description: formData.description.trim(),
           is_active: formData.is_active,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", classData.id)
+        .eq('id', classData.id)
         .select()
         .single();
 
       if (error) throw error;
 
       onUpdate(data);
-      toast.success("Class updated successfully!");
+      toast.success('Class updated successfully!');
     } catch (err) {
-      setError(err.message || "Error updating class");
+      setError(err.message || 'Error updating class');
     } finally {
       setSaving(false);
     }
@@ -710,7 +846,7 @@ function ClassEditForm({ classData, onUpdate }) {
                 Saving...
               </div>
             ) : (
-              "Save Changes"
+              'Save Changes'
             )}
           </button>
         </div>
