@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/layout/MainLayout";
@@ -16,6 +16,9 @@ function ExercisesListContent() {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("title");
+  const [sortOrder, setSortOrder] = useState("asc");
 
   const exerciseIcons = {
     MultipleChoice: "✓",
@@ -72,10 +75,53 @@ function ExercisesListContent() {
     }
   };
 
-  const filteredExercises = exercises.filter((exercise) => {
-    if (filter === "all") return true;
-    return exercise.type === filter;
-  });
+  // Filter, search and sort exercises based on current state
+  const filteredAndSortedExercises = React.useMemo(() => {
+    let filtered = exercises;
+
+    // Apply type filter
+    if (filter !== "all") {
+      filtered = filtered.filter((exercise) => exercise.type === filter);
+    }
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter((exercise) =>
+        exercise.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (exercise.description && exercise.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue = a[sortBy];
+      let bValue = b[sortBy];
+
+      // Handle null/undefined values
+      if (aValue == null) aValue = "";
+      if (bValue == null) bValue = "";
+
+      // For string comparison (title, type)
+      if (sortBy === "title" || sortBy === "type") {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      // For date comparison
+      if (sortBy === "created_at") {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      }
+
+      if (sortOrder === "asc") {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+
+    return filtered;
+  }, [exercises, filter, searchTerm, sortBy, sortOrder]);
 
   const exerciseTypes = [
     "all",
@@ -132,27 +178,96 @@ function ExercisesListContent() {
         </Link>
       </div>
 
-      {/* Filters */}
+      {/* Filters and Search */}
       <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
-        <div className="flex flex-wrap gap-2">
-          {exerciseTypes.map((type) => (
-            <button
-              key={type}
-              onClick={() => setFilter(type)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === type
-                  ? "bg-brand-blue text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-pastel-blue/20"
-              }`}
-            >
-              {type === "all" ? "All Types" : type}
-            </button>
-          ))}
+        <div className="space-y-4">
+          {/* Search and Sort Row */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg
+                    className="h-5 w-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search exercises by title or description..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue"
+                />
+              </div>
+            </div>
+
+            {/* Sort Options */}
+            <div className="flex gap-2">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-brand-blue focus:border-brand-blue bg-white"
+              >
+                <option value="title">Sort by Title</option>
+                <option value="type">Sort by Type</option>
+                <option value="created_at">Sort by Date Created</option>
+              </select>
+
+              <button
+                onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-brand-blue focus:border-brand-blue transition-colors"
+                title={`Sort ${sortOrder === "asc" ? "Descending" : "Ascending"}`}
+              >
+                <svg
+                  className={`w-5 h-5 text-gray-600 transition-transform ${
+                    sortOrder === "desc" ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Type Filter Pills */}
+          <div className="flex flex-wrap gap-2">
+            {exerciseTypes.map((type) => (
+              <button
+                key={type}
+                onClick={() => setFilter(type)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  filter === type
+                    ? "bg-brand-blue text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-pastel-blue/20"
+                }`}
+              >
+                {type === "all" ? "All Types" : type}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Exercises Grid */}
-      {filteredExercises.length === 0 ? (
+      {exercises.length === 0 ? (
         <div className="bg-white rounded-xl p-12 shadow-soft border border-gray-100 text-center">
           <div className="w-16 h-16 bg-pastel-blue/20 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg
@@ -170,7 +285,7 @@ function ExercisesListContent() {
             </svg>
           </div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            {filter === "all" ? "No exercises yet" : `No ${filter} exercises`}
+            No exercises yet
           </h3>
           <p className="text-gray-600 mb-6">
             Start creating engaging exercises for your students!
@@ -195,9 +310,33 @@ function ExercisesListContent() {
             Create Your First Exercise
           </Link>
         </div>
+      ) : filteredAndSortedExercises.length === 0 ? (
+        <div className="bg-white rounded-xl p-12 shadow-soft border border-gray-100 text-center">
+          <div className="w-16 h-16 bg-pastel-blue/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg
+              className="w-8 h-8 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            No exercises found
+          </h3>
+          <p className="text-gray-600 mb-6">
+            No exercises match your search and filter criteria. Try adjusting your search or create a new exercise.
+          </p>
+        </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredExercises.map((exercise) => (
+          {filteredAndSortedExercises.map((exercise) => (
             <div
               key={exercise.id}
               className="bg-white rounded-xl p-6 shadow-soft border border-gray-100 card-hover"
