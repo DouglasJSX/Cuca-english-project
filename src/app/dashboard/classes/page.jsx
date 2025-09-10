@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { DashboardLayout } from "@/components/layout/MainLayout";
-import { useAuth } from "@/hooks/useAuth";
-import { dbHelpers, supabase } from "@/lib/supabase";
-import { useToast } from "@/components/ui/Toast";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { DashboardLayout } from '@/components/layout/MainLayout';
+import { useAuth } from '@/hooks/useAuth';
+import { dbHelpers, supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 function ClassesListContent() {
   const { toast } = useToast();
@@ -15,10 +15,55 @@ function ClassesListContent() {
   const { user } = useAuth();
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState('asc');
 
   useEffect(() => {
     loadClasses();
   }, [user]);
+
+  // Filter and sort classes based on current state
+  const filteredAndSortedClasses = React.useMemo(() => {
+    let filtered = classes;
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter((classItem) =>
+        classItem.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue = a[sortBy];
+      let bValue = b[sortBy];
+
+      // Handle null/undefined values
+      if (aValue == null) aValue = 0;
+      if (bValue == null) bValue = 0;
+
+      // For string comparison (name)
+      if (sortBy === 'name') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      // For date comparison
+      if (sortBy === 'created_at') {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      }
+
+      if (sortOrder === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+
+    return filtered;
+  }, [classes, searchTerm, sortBy, sortOrder]);
 
   const loadClasses = async () => {
     if (!user) return;
@@ -26,15 +71,14 @@ function ClassesListContent() {
     try {
       // Get classes with student count
       const { data, error } = await supabase
-        .from("classes_with_stats")
-        .select("*")
-        .eq("teacher_id", user.id)
-        .order("created_at", { ascending: false });
+        .from('classes_with_stats')
+        .select('*')
+        .eq('teacher_id', user.id);
 
       if (error) throw new Error(error.message);
       setClasses(data || []);
     } catch (err) {
-      console.error("Error loading classes:", err);
+      console.error('Error loading classes:', err);
     } finally {
       setLoading(false);
     }
@@ -42,39 +86,39 @@ function ClassesListContent() {
 
   const handleDelete = async (classId, className) => {
     const confirmed = await confirm({
-      title: "Delete Exercise",
+      title: 'Delete Exercise',
       message: `Are you sure you want to delete "${className}"? This will also delete all students and exercises in this class.`,
-      confirmText: "Delete",
-      cancelText: "Cancel",
-      type: "danger",
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger',
     });
 
     if (!confirmed) return;
 
     try {
       const { error } = await supabase
-        .from("classes")
+        .from('classes')
         .delete()
-        .eq("id", classId)
-        .eq("teacher_id", user.id);
+        .eq('id', classId)
+        .eq('teacher_id', user.id);
 
       if (error) throw error;
 
       // Remove from local state
       setClasses((prev) => prev.filter((cls) => cls.id !== classId));
     } catch (err) {
-      console.error("Error deleting class:", err);
-      toast.error("Error deleting class");
+      console.error('Error deleting class:', err);
+      toast.error('Error deleting class');
     }
   };
 
   const toggleClassStatus = async (classId, currentStatus) => {
     try {
       const { error } = await supabase
-        .from("classes")
+        .from('classes')
         .update({ is_active: !currentStatus })
-        .eq("id", classId)
-        .eq("teacher_id", user.id);
+        .eq('id', classId)
+        .eq('teacher_id', user.id);
 
       if (error) throw error;
 
@@ -85,8 +129,8 @@ function ClassesListContent() {
         )
       );
     } catch (err) {
-      console.error("Error updating class status:", err);
-      toast.error("Error updating class status");
+      console.error('Error updating class status:', err);
+      toast.error('Error updating class status');
     }
   };
 
@@ -94,10 +138,10 @@ function ClassesListContent() {
     try {
       await navigator.clipboard.writeText(accessCode);
       // Could add a toast notification here
-      toast.success("Access code copied to clipboard!");
+      toast.success('Access code copied to clipboard!');
     } catch (err) {
-      console.error("Error copying to clipboard:", err);
-      toast.error("Could not copy access code");
+      console.error('Error copying to clipboard:', err);
+      toast.error('Could not copy access code');
     }
   };
 
@@ -146,6 +190,75 @@ function ClassesListContent() {
         </Link>
       </div>
 
+      {/* Filters and Search */}
+      <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Search */}
+          <div className="flex-1">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg
+                  className="h-5 w-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search classes by name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue"
+              />
+            </div>
+          </div>
+
+          {/* Sort Options */}
+          <div className="flex gap-2">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-brand-blue focus:border-brand-blue bg-white"
+            >
+              <option value="name">Sort by Name</option>
+              <option value="created_at">Sort by Date Created</option>
+              <option value="student_count">Sort by Students</option>
+              <option value="exercise_count">Sort by Exercises</option>
+            </select>
+
+            <button
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-brand-blue focus:border-brand-blue transition-colors"
+              title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
+            >
+              <svg
+                className={`w-5 h-5 text-gray-600 transition-transform ${
+                  sortOrder === 'desc' ? 'rotate-180' : ''
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Classes Grid */}
       {classes.length === 0 ? (
         <div className="bg-white rounded-xl p-12 shadow-soft border border-gray-100 text-center">
@@ -190,9 +303,34 @@ function ClassesListContent() {
             Create Your First Class
           </Link>
         </div>
+      ) : filteredAndSortedClasses.length === 0 ? (
+        <div className="bg-white rounded-xl p-12 shadow-soft border border-gray-100 text-center">
+          <div className="w-16 h-16 bg-pastel-mint/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg
+              className="w-8 h-8 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            No classes found
+          </h3>
+          <p className="text-gray-600 mb-6">
+            No classes match your search criteria. Try adjusting your search or
+            create a new class.
+          </p>
+        </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {classes.map((classItem) => (
+          {filteredAndSortedClasses.map((classItem) => (
             <div
               key={classItem.id}
               className="bg-white rounded-xl p-6 shadow-soft border border-gray-100 card-hover"
@@ -202,14 +340,14 @@ function ClassesListContent() {
                 <div className="flex items-center space-x-3">
                   <div
                     className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                      classItem.is_active ? "bg-brand-green/20" : "bg-gray-200"
+                      classItem.is_active ? 'bg-brand-green/20' : 'bg-gray-200'
                     }`}
                   >
                     <svg
                       className={`w-6 h-6 ${
                         classItem.is_active
-                          ? "text-brand-green"
-                          : "text-gray-500"
+                          ? 'text-brand-green'
+                          : 'text-gray-500'
                       }`}
                       fill="none"
                       stroke="currentColor"
@@ -231,11 +369,11 @@ function ClassesListContent() {
                       <span
                         className={`px-2 py-1 text-xs rounded-full ${
                           classItem.is_active
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-600"
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-600'
                         }`}
                       >
-                        {classItem.is_active ? "Active" : "Inactive"}
+                        {classItem.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
                   </div>
@@ -272,7 +410,7 @@ function ClassesListContent() {
                       }
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      {classItem.is_active ? "Deactivate" : "Activate"}
+                      {classItem.is_active ? 'Deactivate' : 'Activate'}
                     </button>
                     <button
                       onClick={() => handleDelete(classItem.id, classItem.name)}
